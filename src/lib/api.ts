@@ -111,8 +111,8 @@ async function unwrap<T>(
         : finalHeaders, // header 注入由 ky hook 完成
       hooks: {
         beforeRequest: [
-          (req) => {
-            if (skipAuth) req.headers.delete("Authorization");
+          ({ request }) => {
+            if (skipAuth) request.headers.delete("Authorization");
           },
         ],
       },
