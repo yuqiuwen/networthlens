@@ -1,9 +1,5 @@
-// RSA-OAEP (SHA-256) 加密工具，用于请求体中的敏感字段（如密码）加密。
-// 公钥来源：
-//   1) 优先使用环境变量 VITE_RSA_PUBLIC_KEY（PEM 或纯 base64 DER）
-//   2) 否则从后端 /v1/auth/pub-key 获取（响应可为 { public_key } 或纯字符串）
-
-import { API_BASE_URL, type ApiEnvelope } from "./api";
+// RSA-OAEP (SHA-256) 加密工具，用于敏感字段（如密码）的请求体加密。
+// 公钥通过 zustand store 全局缓存（1 小时），按 biz 区分。
 
 function requireSubtle(): SubtleCrypto {
   const subtle = globalThis.crypto?.subtle;
@@ -35,7 +31,8 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
   return base64ToArrayBuffer(b64);
 }
 
-async function importPublicKey(pemOrB64: string): Promise<CryptoKey> {
+/** 从 PEM/Base64 SPKI 字符串导入 RSA-OAEP 公钥 */
+export async function importPublicKeyFromPem(pemOrB64: string): Promise<CryptoKey> {
   const subtle = requireSubtle();
   const der = pemToArrayBuffer(pemOrB64);
   return subtle.importKey(
@@ -47,51 +44,24 @@ async function importPublicKey(pemOrB64: string): Promise<CryptoKey> {
   );
 }
 
-let publicKeyPromise: Promise<CryptoKey> | null = null;
-
-async function fetchPublicKeyFromServer(): Promise<string> {
-  const res = await fetch(`${API_BASE_URL}/v1/auth/pub-key`, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-  });
-  const text = await res.text();
-  try {
-    const json = JSON.parse(text) as ApiEnvelope<{ public_key?: string; pub_key?: string } | string>;
-    if (json && typeof json === "object" && "code" in json) {
-      if (json.code !== 0) throw new Error(json.errmsg || "获取公钥失败");
-      const data = json.data;
-      if (typeof data === "string") return data;
-      const key = data?.public_key ?? data?.pub_key;
-      if (!key) throw new Error("公钥响应缺少 public_key 字段");
-      return key;
-    }
-  } catch {
-    /* fallthrough — treat as raw pem */
-  }
-  return text;
-}
-
-export function getPublicKey(): Promise<CryptoKey> {
-  if (publicKeyPromise) return publicKeyPromise;
-  publicKeyPromise = (async () => {
-    const envKey = import.meta.env.VITE_RSA_PUBLIC_KEY as string | undefined;
-    const pem = envKey && envKey.trim() ? envKey : await fetchPublicKeyFromServer();
-    return importPublicKey(pem);
-  })().catch((err) => {
-    publicKeyPromise = null;
-    throw err;
-  });
-  return publicKeyPromise;
-}
-
-/** RSA-OAEP 加密，返回 base64 密文 */
-export async function rsaEncrypt(plaintext: string): Promise<string> {
+/** 使用指定公钥进行 RSA-OAEP 加密，返回 base64 密文 */
+export async function rsaEncryptWithKey(key: CryptoKey, plaintext: string): Promise<string> {
   const subtle = requireSubtle();
-  const key = await getPublicKey();
   const encrypted = await subtle.encrypt(
     { name: "RSA-OAEP" },
     key,
     new TextEncoder().encode(plaintext),
   );
   return arrayBufferToBase64(encrypted);
+}
+
+/** 按业务取公钥（带缓存）并加密 */
+export async function encryptWithBiz(
+  plaintext: string,
+  biz: "user_pwd" = "user_pwd",
+): Promise<string> {
+  const { useRSAKeyStore } = await import("@/stores/rsa-key-store");
+  const key = await useRSAKeyStore.getState().getPublicKey(biz);
+  if (!key) throw new Error("RSA 公钥获取失败");
+  return rsaEncryptWithKey(key, plaintext);
 }

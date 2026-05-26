@@ -1,6 +1,8 @@
-// Unified API client for FastAPI backend.
+// Unified API client for FastAPI backend, built on top of ky.
 // All responses come back with HTTP 200 and a unified envelope:
 // { code: number, msg: string, data?: any, errmsg?: string }
+
+import ky, { HTTPError, type KyInstance, type Options as KyOptions } from "ky";
 
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://127.0.0.1:5555";
@@ -43,26 +45,14 @@ export class ApiError extends Error {
   }
 }
 
-interface RequestOptions extends Omit<RequestInit, "body"> {
-  body?: unknown;
-  skipAuth?: boolean;
-  _retry?: boolean;
-}
-
 let refreshPromise: Promise<string> | null = null;
 
-async function refreshToken(): Promise<string> {
+function refreshToken(): Promise<string> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
-      const res = await fetch(`${API_BASE_URL}/v1/auth/refresh`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-      const json = (await res.json()) as ApiEnvelope<{
-        access_token: string;
-        expire_in: number;
-      }>;
+      const json = await ky
+        .post(`${API_BASE_URL}/v1/auth/refresh`, { credentials: "include" })
+        .json<ApiEnvelope<{ access_token: string; expire_in: number }>>();
       if (json.code !== 0 || !json.data) {
         throw new ApiError(json.code, json.errmsg || "刷新登录态失败");
       }
@@ -75,52 +65,114 @@ async function refreshToken(): Promise<string> {
   return refreshPromise;
 }
 
-export async function apiRequest<T = unknown>(
+// 内部 ky 实例：自动注入 Authorization 头。
+const kyClient: KyInstance = ky.create({
+  prefixUrl: API_BASE_URL,
+  credentials: "include",
+  timeout: 20_000,
+  hooks: {
+    beforeRequest: [
+      (req) => {
+        const token = tokenStore.get();
+        if (token && !req.headers.has("Authorization")) {
+          req.headers.set("Authorization", `Bearer ${token}`);
+        }
+      },
+    ],
+  },
+});
+
+/** 业务请求封装：统一解包 envelope，自动刷新 token。 */
+export interface RequestOptions extends KyOptions {
+  /** 不携带 Authorization 头 */
+  skipAuth?: boolean;
+  /** 内部使用：标记是否已经重试过 */
+  _retry?: boolean;
+}
+
+async function unwrap<T>(
+  method: "get" | "post" | "put" | "delete" | "patch",
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { body, skipAuth, _retry, headers, ...rest } = options;
+  const { skipAuth, _retry, headers, ...rest } = options;
+  const url = path.startsWith("/") ? path.slice(1) : path;
 
-  const finalHeaders: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(headers as Record<string, string> | undefined),
-  };
+  const finalHeaders = new Headers(headers as HeadersInit | undefined);
+  if (skipAuth) finalHeaders.set("X-Skip-Auth", "1"); // 标记给 hook（hook 中可读取）
 
-  if (!skipAuth) {
-    const token = tokenStore.get();
-    if (token) finalHeaders["Authorization"] = `Bearer ${token}`;
-  }
-
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...rest,
-    headers: finalHeaders,
-    credentials: "include",
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-
-  let json: ApiEnvelope<T>;
+  let envelope: ApiEnvelope<T>;
   try {
-    json = (await res.json()) as ApiEnvelope<T>;
-  } catch {
-    throw new ApiError(-1, `网络错误 (${res.status})`);
+    envelope = await kyClient(url, {
+      ...rest,
+      method,
+      headers: skipAuth
+        ? finalHeaders
+        : finalHeaders, // header 注入由 ky hook 完成
+      hooks: {
+        beforeRequest: [
+          (req) => {
+            if (skipAuth) req.headers.delete("Authorization");
+          },
+        ],
+      },
+    }).json<ApiEnvelope<T>>();
+  } catch (err) {
+    if (err instanceof HTTPError) {
+      throw new ApiError(err.response.status, `网络错误 (${err.response.status})`);
+    }
+    throw new ApiError(-1, (err as Error)?.message || "网络错误");
   }
 
-  if (json.code === 40001 && !_retry && !skipAuth) {
+  if (envelope.code === 40001 && !_retry && !skipAuth) {
     try {
       await refreshToken();
-      return apiRequest<T>(path, { ...options, _retry: true });
+      return unwrap<T>(method, path, { ...options, _retry: true });
     } catch {
       tokenStore.clear();
-      throw new ApiError(40001, json.errmsg || "未认证，请重新登录");
+      throw new ApiError(40001, envelope.errmsg || "未认证，请重新登录");
     }
   }
 
-  if (json.code !== 0) {
-    throw new ApiError(json.code, json.errmsg || json.msg || "请求失败");
+  if (envelope.code !== 0) {
+    throw new ApiError(envelope.code, envelope.errmsg || envelope.msg || "请求失败");
   }
 
-  return json.data as T;
+  return envelope.data as T;
 }
+
+export const request = {
+  get: <T = unknown>(path: string, options?: RequestOptions) =>
+    unwrap<T>("get", path, options),
+  post: <T = unknown>(path: string, body?: unknown, options?: RequestOptions) =>
+    unwrap<T>("post", path, { ...options, json: body }),
+  put: <T = unknown>(path: string, body?: unknown, options?: RequestOptions) =>
+    unwrap<T>("put", path, { ...options, json: body }),
+  patch: <T = unknown>(path: string, body?: unknown, options?: RequestOptions) =>
+    unwrap<T>("patch", path, { ...options, json: body }),
+  delete: <T = unknown>(path: string, options?: RequestOptions) =>
+    unwrap<T>("delete", path, options),
+};
+
+// 向后兼容的旧名字（其它代码可能仍在引用）
+export const apiRequest = async <T = unknown>(
+  path: string,
+  options: RequestOptions & { method?: string; body?: unknown } = {},
+): Promise<T> => {
+  const { method = "GET", body, ...rest } = options;
+  const m = method.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
+  if (m === "get" || m === "delete") return unwrap<T>(m, path, rest);
+  return unwrap<T>(m, path, { ...rest, json: body });
+};
+
+// ---------------- Secret APIs ----------------
+
+export interface RSAPublicKeyResp {
+  public_key: string;
+}
+
+export const getRSAPublicKeyApi = (biz: "user_pwd") =>
+  request.post<RSAPublicKeyResp>("/v1/secret/rsa_public_key", { biz }, { skipAuth: true });
 
 // ---------------- Auth APIs ----------------
 
@@ -148,30 +200,27 @@ export interface AuthResult {
 
 export const authApi = {
   login: async (payload: LoginPayload) => {
-    const { rsaEncrypt } = await import("./crypto");
-    // 密码登录时对 code 字段（即密码）做 RSA 加密；验证码登录不加密。
+    const { encryptWithBiz } = await import("./crypto");
     const body =
       payload.code_type === "pwd"
-        ? { ...payload, code: await rsaEncrypt(payload.code) }
+        ? { ...payload, code: await encryptWithBiz(payload.code, "user_pwd") }
         : payload;
-    return apiRequest<AuthResult>("/v1/auth/login", {
-      method: "POST",
-      body,
-      skipAuth: true,
-    });
+    return request.post<AuthResult>("/v1/auth/login", body, { skipAuth: true });
   },
   signup: async (payload: SignupPayload) => {
-    const { rsaEncrypt } = await import("./crypto");
-    const encryptedPwd = payload.pwd ? await rsaEncrypt(payload.pwd) : undefined;
-    return apiRequest<AuthResult>("/v1/auth/signup", {
-      method: "POST",
-      body: {
+    const { encryptWithBiz } = await import("./crypto");
+    const encryptedPwd = payload.pwd
+      ? await encryptWithBiz(payload.pwd, "user_pwd")
+      : undefined;
+    return request.post<AuthResult>(
+      "/v1/auth/signup",
+      {
         ...payload,
         ...(encryptedPwd ? { pwd: encryptedPwd } : {}),
         is_encrypted: !!encryptedPwd,
       },
-      skipAuth: true,
-    });
+      { skipAuth: true },
+    );
   },
   refresh: () => refreshToken(),
 };
