@@ -67,15 +67,15 @@ function refreshToken(): Promise<string> {
 
 // 内部 ky 实例：自动注入 Authorization 头。
 const kyClient: KyInstance = ky.create({
-  prefixUrl: API_BASE_URL,
+  baseUrl: API_BASE_URL,
   credentials: "include",
   timeout: 20_000,
   hooks: {
     beforeRequest: [
-      (req) => {
+      ({ request }) => {
         const token = tokenStore.get();
-        if (token && !req.headers.has("Authorization")) {
-          req.headers.set("Authorization", `Bearer ${token}`);
+        if (token && !request.headers.has("Authorization")) {
+          request.headers.set("Authorization", `Bearer ${token}`);
         }
       },
     ],
