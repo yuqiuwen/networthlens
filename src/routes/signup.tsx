@@ -1,5 +1,6 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 
 import { AuthCard } from "@/components/auth-card";
@@ -38,44 +39,34 @@ function SignupPage() {
   const { setSession } = useAuth();
 
   const [channel, setChannel] = useState<Channel>("phone");
-  const [account, setAccount] = useState("");
-  const [username, setUsername] = useState("");
-  const [pwd, setPwd] = useState("");
-  const [code, setCode] = useState("");
-  const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!account || !pwd) {
-      toast.error("请填写账号和密码");
-      return;
-    }
-    if (channel === "account" && !/^[A-Za-z0-9_-]{4,12}$/.test(account)) {
-      toast.error("账号只能包含英文、数字、下划线和短横线，长度 4-12");
-      return;
-    }
-    setLoading(true);
-    try {
-      const result = await authApi.signup({
-        account: account.trim(),
-        auth_type: AUTH_TYPE_MAP[channel],
-        pwd,
-        code: code || undefined,
-        username: username || undefined,
-      });
-      setSession(result);
-      toast.success("注册成功，欢迎加入");
-      navigate({ to: "/dashboard" });
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "注册失败";
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const form = useForm({
+    defaultValues: { account: "", username: "", pwd: "", code: "" },
+    onSubmit: async ({ value }) => {
+      if (channel === "account" && !/^[A-Za-z0-9_-]{4,12}$/.test(value.account)) {
+        toast.error("账号只能包含英文、数字、下划线和短横线，长度 4-12");
+        return;
+      }
+      try {
+        const result = await authApi.signup({
+          account: value.account.trim(),
+          auth_type: AUTH_TYPE_MAP[channel],
+          pwd: value.pwd,
+          code: value.code || undefined,
+          username: value.username || undefined,
+        });
+        setSession(result);
+        toast.success("注册成功，欢迎加入");
+        navigate({ to: "/dashboard" });
+      } catch (err) {
+        toast.error(err instanceof ApiError ? err.message : "注册失败");
+      }
+    },
+  });
 
-  const sendCode = async () => {
+  const sendCode = () => {
+    const account = form.getFieldValue("account");
     if (!account) {
       toast.error("请先输入账号");
       return;
@@ -92,6 +83,15 @@ function SignupPage() {
       });
     }, 1000);
   };
+
+  const accountLabel =
+    channel === "phone" ? "手机号" : channel === "email" ? "邮箱" : "账号";
+  const accountPlaceholder =
+    channel === "phone"
+      ? "请输入手机号"
+      : channel === "email"
+        ? "name@example.com"
+        : "4-12 位英文/数字/_/-";
 
   return (
     <AuthCard
@@ -113,91 +113,119 @@ function SignupPage() {
           <TabsTrigger value="account">账号</TabsTrigger>
         </TabsList>
 
-        <form onSubmit={submit} className="space-y-4 mt-6">
-          <div className="space-y-2">
-            <Label htmlFor="account">
-              {channel === "phone" ? "手机号" : channel === "email" ? "邮箱" : "账号"}
-            </Label>
-            <Input
-              id="account"
-              placeholder={
-                channel === "phone"
-                  ? "请输入手机号"
-                  : channel === "email"
-                  ? "name@example.com"
-                  : "4-12 位英文/数字/_/-"
-              }
-              value={account}
-              onChange={(e) => setAccount(e.target.value)}
-            />
-          </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            form.handleSubmit();
+          }}
+          className="space-y-4 mt-6"
+        >
+          <form.Field
+            name="account"
+            validators={{
+              onChange: ({ value }) => (!value ? `请输入${accountLabel}` : undefined),
+            }}
+          >
+            {(field) => (
+              <div className="space-y-2">
+                <Label htmlFor={field.name}>{accountLabel}</Label>
+                <Input
+                  id={field.name}
+                  placeholder={accountPlaceholder}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                />
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-xs text-destructive">{field.state.meta.errors[0]}</p>
+                )}
+              </div>
+            )}
+          </form.Field>
 
-          <div className="space-y-2">
-            <Label htmlFor="username">昵称（可选）</Label>
-            <Input
-              id="username"
-              placeholder="如何称呼你"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-          </div>
+          <form.Field name="username">
+            {(field) => (
+              <div className="space-y-2">
+                <Label htmlFor={field.name}>昵称（可选）</Label>
+                <Input
+                  id={field.name}
+                  placeholder="如何称呼你"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                />
+              </div>
+            )}
+          </form.Field>
 
-          <div className="space-y-2">
-            <Label htmlFor="pwd">密码</Label>
-            <Input
-              id="pwd"
-              type="password"
-              placeholder="至少 8 位"
-              value={pwd}
-              onChange={(e) => setPwd(e.target.value)}
-            />
-          </div>
+          <form.Field
+            name="pwd"
+            validators={{
+              onChange: ({ value }) =>
+                !value ? "请输入密码" : value.length < 8 ? "密码至少 8 位" : undefined,
+            }}
+          >
+            {(field) => (
+              <div className="space-y-2">
+                <Label htmlFor={field.name}>密码</Label>
+                <Input
+                  id={field.name}
+                  type="password"
+                  placeholder="至少 8 位"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                />
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-xs text-destructive">{field.state.meta.errors[0]}</p>
+                )}
+              </div>
+            )}
+          </form.Field>
 
-          <TabsContent value="phone" className="m-0 space-y-2">
-            <Label htmlFor="code">短信验证码</Label>
-            <div className="flex gap-2">
-              <Input
-                id="code"
-                placeholder="6 位验证码"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-              />
+          {channel !== "account" && (
+            <form.Field name="code">
+              {(field) => (
+                <div className="space-y-2">
+                  <Label htmlFor={field.name}>
+                    {channel === "phone" ? "短信验证码" : "邮箱验证码"}
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id={field.name}
+                      placeholder="6 位验证码"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={sendCode}
+                      disabled={cooldown > 0}
+                      className="shrink-0"
+                    >
+                      {cooldown > 0 ? `${cooldown}s` : "发送验证码"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </form.Field>
+          )}
+
+          <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
+            {([canSubmit, isSubmitting]) => (
               <Button
-                type="button"
-                variant="outline"
-                onClick={sendCode}
-                disabled={cooldown > 0}
-                className="shrink-0"
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={!canSubmit || isSubmitting}
               >
-                {cooldown > 0 ? `${cooldown}s` : "发送验证码"}
+                {isSubmitting ? "创建中..." : "创建账户"}
               </Button>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="email" className="m-0 space-y-2">
-            <Label htmlFor="code">邮箱验证码</Label>
-            <div className="flex gap-2">
-              <Input
-                id="code"
-                placeholder="6 位验证码"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={sendCode}
-                disabled={cooldown > 0}
-                className="shrink-0"
-              >
-                {cooldown > 0 ? `${cooldown}s` : "发送验证码"}
-              </Button>
-            </div>
-          </TabsContent>
-
-          <Button type="submit" className="w-full" size="lg" disabled={loading}>
-            {loading ? "创建中..." : "创建账户"}
-          </Button>
+            )}
+          </form.Subscribe>
         </form>
       </Tabs>
     </AuthCard>
