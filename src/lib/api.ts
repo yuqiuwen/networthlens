@@ -139,7 +139,6 @@ export interface SignupPayload {
   pwd?: string;
   code?: string;
   username?: string;
-  is_encrypted?: boolean;
 }
 
 export interface AuthResult {
@@ -148,17 +147,31 @@ export interface AuthResult {
 }
 
 export const authApi = {
-  login: (payload: LoginPayload) =>
-    apiRequest<AuthResult>("/v1/auth/login", {
+  login: async (payload: LoginPayload) => {
+    const { rsaEncrypt } = await import("./crypto");
+    // 密码登录时对 code 字段（即密码）做 RSA 加密；验证码登录不加密。
+    const body =
+      payload.code_type === "pwd"
+        ? { ...payload, code: await rsaEncrypt(payload.code) }
+        : payload;
+    return apiRequest<AuthResult>("/v1/auth/login", {
       method: "POST",
-      body: payload,
+      body,
       skipAuth: true,
-    }),
-  signup: (payload: SignupPayload) =>
-    apiRequest<AuthResult>("/v1/auth/signup", {
+    });
+  },
+  signup: async (payload: SignupPayload) => {
+    const { rsaEncrypt } = await import("./crypto");
+    const encryptedPwd = payload.pwd ? await rsaEncrypt(payload.pwd) : undefined;
+    return apiRequest<AuthResult>("/v1/auth/signup", {
       method: "POST",
-      body: { is_encrypted: false, ...payload },
+      body: {
+        ...payload,
+        ...(encryptedPwd ? { pwd: encryptedPwd } : {}),
+        is_encrypted: !!encryptedPwd,
+      },
       skipAuth: true,
-    }),
+    });
+  },
   refresh: () => refreshToken(),
 };
