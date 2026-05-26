@@ -63,7 +63,6 @@ function SignupPage() {
         pwd,
         code: code || undefined,
         username: username || undefined,
-        is_encrypted: false,
       });
       setSession(result);
       toast.success("注册成功，欢迎加入");
