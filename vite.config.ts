@@ -25,10 +25,8 @@ export default defineConfig(({ mode }) => {
       tsConfigPaths(),
       tailwindcss(),
       tanstackStart({
-        customViteReactPlugin: true,
         server: { entry: "server" },
       }),
-      viteReact(),
     ],
     resolve: {
       alias: {
