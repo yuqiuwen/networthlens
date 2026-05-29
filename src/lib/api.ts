@@ -4,8 +4,10 @@
 
 import ky, { HTTPError, type KyInstance, type Options as KyOptions } from "ky";
 
+// 开发环境下走 Vite 代理（见 vite.config.ts），生产环境可通过 VITE_API_BASE_URL 覆盖。
+// 默认空字符串 = 同源相对路径，配合代理避免 CORS。
 export const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://127.0.0.1:5555";
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
 
 const ACCESS_TOKEN_KEY = "nwl_access_token";
 const ACCESS_TOKEN_EXPIRE_KEY = "nwl_access_token_expire";
