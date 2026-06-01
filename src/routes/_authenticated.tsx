@@ -1,15 +1,34 @@
 import { createFileRoute, redirect, Outlet, Link, useRouter } from "@tanstack/react-router";
-import { LayoutDashboard, Wallet, Target, Receipt, TrendingUp, LogOut, Menu } from "lucide-react";
+import {
+  LayoutDashboard,
+  Wallet,
+  Target,
+  Receipt,
+  TrendingUp,
+  LogOut,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  User,
+} from "lucide-react";
 import { useState } from "react";
 
-import { tokenStore } from "@/lib/api";
+import { authApi, tokenStore } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: ({ location }) => {
-    // 仅在客户端校验 token（token 存在 localStorage，SSR 时不可用）
     if (typeof window === "undefined") return;
     if (!tokenStore.get()) {
       throw redirect({
@@ -32,53 +51,140 @@ const NAV = [
 function AuthenticatedLayout() {
   const { logout } = useAuth();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    router.navigate({ to: "/login" });
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } finally {
+      logout();
+      router.navigate({ to: "/login" });
+    }
   };
 
   return (
     <div className="min-h-screen flex bg-background">
+      {/* 移动端遮罩 */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-40 w-64 bg-sidebar text-sidebar-foreground flex flex-col transition-transform",
-          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+          "fixed lg:sticky top-0 left-0 z-40 h-screen bg-sidebar text-sidebar-foreground flex flex-col transition-all duration-200",
+          collapsed ? "lg:w-16" : "lg:w-64",
+          "w-64",
+          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
-        <div className="px-6 py-6 border-b border-sidebar-border">
-          <Link to="/dashboard" className="font-display text-lg font-semibold">
-            <span className="text-gradient-gold">NetWorthLens</span>
+        <div
+          className={cn(
+            "flex items-center border-b border-sidebar-border h-16 shrink-0",
+            collapsed ? "lg:justify-center lg:px-2 px-6" : "px-6",
+          )}
+        >
+          <Link to="/dashboard" className="font-display text-lg font-semibold truncate">
+            {collapsed ? (
+              <span className="text-gradient-gold">NWL</span>
+            ) : (
+              <>
+                <span className="text-gradient-gold">NetWorthLens</span>
+                <div className="text-xs text-sidebar-foreground/60 mt-1 font-normal">
+                  个人财务驾驶舱
+                </div>
+              </>
+            )}
           </Link>
-          <div className="text-xs text-sidebar-foreground/60 mt-1">个人财务驾驶舱</div>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           {NAV.map((item) => (
             <Link
               key={item.to}
               to={item.to}
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+              onClick={() => setMobileOpen(false)}
+              title={collapsed ? item.label : undefined}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors",
+                collapsed && "lg:justify-center lg:px-0",
+              )}
               activeProps={{
-                className:
+                className: cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm bg-sidebar-accent text-sidebar-accent-foreground font-medium",
+                  collapsed && "lg:justify-center lg:px-0",
+                ),
               }}
             >
-              <item.icon className="h-4 w-4" />
-              {item.label}
+              <item.icon className="h-4 w-4 shrink-0" />
+              <span className={cn(collapsed && "lg:hidden")}>{item.label}</span>
             </Link>
           ))}
         </nav>
-        <div className="p-3 border-t border-sidebar-border">
+
+        {/* 底部：折叠切换 + 用户头像菜单 */}
+        <div
+          className={cn(
+            "p-3 border-t border-sidebar-border shrink-0 flex items-center gap-2",
+            collapsed ? "lg:flex-col" : "justify-between",
+          )}
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex items-center gap-2 rounded-lg p-1 hover:bg-sidebar-accent transition-colors flex-1 min-w-0"
+                aria-label="用户菜单"
+              >
+                <Avatar className="h-8 w-8 shrink-0">
+                  <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                    <User className="h-4 w-4" />
+                  </AvatarFallback>
+                </Avatar>
+                <span
+                  className={cn(
+                    "text-sm text-sidebar-foreground/90 truncate text-left",
+                    collapsed && "lg:hidden",
+                  )}
+                >
+                  我的账户
+                </span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top" className="w-48">
+              <DropdownMenuLabel>账户</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to="/profile" className="cursor-pointer">
+                  <User className="h-4 w-4 mr-2" />
+                  个人中心
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="text-destructive focus:text-destructive cursor-pointer"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                退出登录
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button
             variant="ghost"
-            onClick={handleLogout}
-            className="w-full justify-start text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            size="icon"
+            onClick={() => setCollapsed((c) => !c)}
+            className="hidden lg:inline-flex h-8 w-8 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            aria-label={collapsed ? "展开菜单" : "收起菜单"}
           >
-            <LogOut className="h-4 w-4 mr-2" />
-            退出登录
+            {collapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </aside>
@@ -86,7 +192,7 @@ function AuthenticatedLayout() {
       {/* Main */}
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="lg:hidden flex items-center justify-between px-4 h-14 border-b bg-card">
-          <button onClick={() => setOpen((o) => !o)} className="p-2 -ml-2">
+          <button onClick={() => setMobileOpen((o) => !o)} className="p-2 -ml-2">
             <Menu className="h-5 w-5" />
           </button>
           <div className="font-display font-semibold">NetWorthLens</div>
