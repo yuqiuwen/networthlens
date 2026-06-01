@@ -226,4 +226,5 @@ export const authApi = {
     );
   },
   refresh: () => refreshToken(),
+  logout: () => request.post<unknown>("/v1/auth/logout").catch(() => undefined),
 };
