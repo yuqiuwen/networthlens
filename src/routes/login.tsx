@@ -19,6 +19,7 @@ const searchSchema = z.object({
 export const Route = createFileRoute("/login")({
   validateSearch: searchSchema,
   beforeLoad: () => {
+    if (typeof window === "undefined") return;
     if (tokenStore.get()) {
       throw redirect({ to: "/dashboard" });
     }

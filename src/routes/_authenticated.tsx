@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: ({ location }) => {
+    // 仅在客户端校验 token（token 存在 localStorage，SSR 时不可用）
+    if (typeof window === "undefined") return;
     if (!tokenStore.get()) {
       throw redirect({
         to: "/login",
