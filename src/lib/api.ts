@@ -27,10 +27,7 @@ export const tokenStore = {
   set(token: string, expireIn: number) {
     if (typeof window === "undefined") return;
     localStorage.setItem(ACCESS_TOKEN_KEY, token);
-    localStorage.setItem(
-      ACCESS_TOKEN_EXPIRE_KEY,
-      String(Date.now() + expireIn * 1000),
-    );
+    localStorage.setItem(ACCESS_TOKEN_EXPIRE_KEY, String(Date.now() + expireIn * 1000));
   },
   clear() {
     if (typeof window === "undefined") return;
@@ -117,9 +114,7 @@ async function unwrap<T>(
     envelope = await kyClient(url, {
       ...rest,
       method,
-      headers: skipAuth
-        ? finalHeaders
-        : finalHeaders, // header 注入由 ky hook 完成
+      headers: skipAuth ? finalHeaders : finalHeaders, // header 注入由 ky hook 完成
       hooks: {
         beforeRequest: [
           ({ request }) => {
@@ -153,8 +148,7 @@ async function unwrap<T>(
 }
 
 export const request = {
-  get: <T = unknown>(path: string, options?: RequestOptions) =>
-    unwrap<T>("get", path, options),
+  get: <T = unknown>(path: string, options?: RequestOptions) => unwrap<T>("get", path, options),
   post: <T = unknown>(path: string, body?: unknown, options?: RequestOptions) =>
     unwrap<T>("post", path, { ...options, json: body }),
   put: <T = unknown>(path: string, body?: unknown, options?: RequestOptions) =>
@@ -220,9 +214,7 @@ export const authApi = {
   },
   signup: async (payload: SignupPayload) => {
     const { encryptWithBiz } = await import("./crypto");
-    const encryptedPwd = payload.pwd
-      ? await encryptWithBiz(payload.pwd, "user_pwd")
-      : undefined;
+    const encryptedPwd = payload.pwd ? await encryptWithBiz(payload.pwd, "user_pwd") : undefined;
     return request.post<AuthResult>(
       "/v1/auth/signup",
       {
