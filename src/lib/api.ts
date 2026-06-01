@@ -4,10 +4,17 @@
 
 import ky, { HTTPError, type KyInstance, type Options as KyOptions } from "ky";
 
-// 开发环境下走 Vite 代理（见 vite.config.ts），生产环境可通过 VITE_API_BASE_URL 覆盖。
-// 默认空字符串 = 同源相对路径，配合代理避免 CORS。
-export const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
+// 开发环境强制走同源 /v1 代理（见 vite.config.ts），避免浏览器直连后端触发 CORS。
+// 生产环境才读取 VITE_API_BASE_URL 作为后端地址。
+const configuredApiBaseUrl =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ?? "";
+
+export const API_BASE_URL = import.meta.env.DEV ? "" : configuredApiBaseUrl;
+
+function toRequestUrl(path: string) {
+  const normalized = path.startsWith("/") ? path.slice(1) : path;
+  return API_BASE_URL ? normalized : `/${normalized}`;
+}
 
 const ACCESS_TOKEN_KEY = "nwl_access_token";
 const ACCESS_TOKEN_EXPIRE_KEY = "nwl_access_token_expire";
@@ -53,7 +60,10 @@ function refreshToken(): Promise<string> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
       const json = await ky
-        .post(`${API_BASE_URL}/v1/auth/refresh`, { credentials: "include" })
+        .post(toRequestUrl("/v1/auth/refresh"), {
+          ...(API_BASE_URL ? { prefixUrl: API_BASE_URL } : {}),
+          credentials: "include",
+        })
         .json<ApiEnvelope<{ access_token: string; expire_in: number }>>();
       if (json.code !== 0 || !json.data) {
         throw new ApiError(json.code, json.errmsg || "刷新登录态失败");
@@ -69,7 +79,7 @@ function refreshToken(): Promise<string> {
 
 // 内部 ky 实例：自动注入 Authorization 头。
 const kyClient: KyInstance = ky.create({
-  baseUrl: API_BASE_URL,
+  ...(API_BASE_URL ? { prefixUrl: API_BASE_URL } : {}),
   credentials: "include",
   timeout: 20_000,
   hooks: {
@@ -98,10 +108,9 @@ async function unwrap<T>(
   options: RequestOptions = {},
 ): Promise<T> {
   const { skipAuth, _retry, headers, ...rest } = options;
-  const url = path.startsWith("/") ? path.slice(1) : path;
+  const url = toRequestUrl(path);
 
   const finalHeaders = new Headers(headers as HeadersInit | undefined);
-  if (skipAuth) finalHeaders.set("X-Skip-Auth", "1"); // 标记给 hook（hook 中可读取）
 
   let envelope: ApiEnvelope<T>;
   try {
