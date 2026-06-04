@@ -1,4 +1,5 @@
-import { pick } from "lodash";
+import pkg from 'lodash';
+const {pick} = pkg;
 
 const toRawType = (val: unknown) => Object.prototype.toString.call(val).slice(8, -1);
 

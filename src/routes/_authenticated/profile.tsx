@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { userApi, type UserProfile } from "@/lib/api";
 import { defineMap } from "@/utils/enum";
+import { formatTimestamp } from "@/utils/time";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -31,12 +32,6 @@ const GENDER_MAP = defineMap(GENDERS as unknown as { value: number; label: strin
   "label",
   "color",
 ]) as Record<number, { label: string; color: string }>;
-
-function formatTimestamp(ts: number) {
-  if (!ts) return "—";
-  const d = new Date(ts * 1000);
-  return d.toLocaleString("zh-CN", { hour12: false });
-}
 
 function InfoRow({
   icon: Icon,
@@ -166,9 +161,6 @@ function ProfilePage() {
         <CardContent className="grid gap-x-8 sm:grid-cols-2">
           <InfoRow icon={Clock} label="创建时间">
             {formatTimestamp(data.ctime)}
-          </InfoRow>
-          <InfoRow icon={Clock} label="更新时间">
-            {formatTimestamp(data.utime)}
           </InfoRow>
         </CardContent>
         <Separator />

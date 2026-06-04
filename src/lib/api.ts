@@ -246,5 +246,5 @@ export interface UserProfile {
 }
 
 export const userApi = {
-  getProfile: () => request.get<UserProfile>("/v1/user/profile"),
+  getProfile: () => request.get<UserProfile>("/v1/me"),
 };
