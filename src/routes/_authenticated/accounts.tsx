@@ -177,7 +177,7 @@ function AccountFormDialog({
   const isEdit = !!editing;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isEdit ? "编辑账户" : "新增账户"}</DialogTitle>
