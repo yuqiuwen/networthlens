@@ -19,6 +19,7 @@ import {ApiError} from '@/lib/api'
 import {
   accountApi,
   type AccountListItem,
+  type AccountDetail,
   type CreateAccountPayload,
   type UpdateAccountPayload,
 } from "@/lib/api/account";
