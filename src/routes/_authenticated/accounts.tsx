@@ -506,10 +506,8 @@ function AccountsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onClick={() => {
-                            setEditing(acc);
-                            setFormOpen(true);
-                          }}
+                          onClick={() => handleEdit(acc)}
+                          disabled={fetchingDetail}
                         >
                           <Pencil className="mr-2 h-4 w-4" />
                           编辑
