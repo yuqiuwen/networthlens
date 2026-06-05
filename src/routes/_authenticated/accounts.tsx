@@ -143,12 +143,14 @@ function AccountFormDialog({
   open,
   onOpenChange,
   editing,
+  detail,
   onSubmit,
   submitting,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   editing: AccountListItem | null;
+  detail: AccountDetail | null;
   onSubmit: (form: FormState) => void;
   submitting: boolean;
 }) {
