@@ -19,6 +19,7 @@ import {ApiError} from '@/lib/api'
 import {
   accountApi,
   type AccountListItem,
+  type AccountDetail,
   type CreateAccountPayload,
   type UpdateAccountPayload,
 } from "@/lib/api/account";
@@ -142,12 +143,14 @@ function AccountFormDialog({
   open,
   onOpenChange,
   editing,
+  detail,
   onSubmit,
   submitting,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   editing: AccountListItem | null;
+  detail: AccountDetail | null;
   onSubmit: (form: FormState) => void;
   submitting: boolean;
 }) {
@@ -250,26 +253,44 @@ function AccountFormDialog({
           </div>
 
           {isEdit && (
-            <div className="grid gap-2">
-              <Label>状态</Label>
-              <Select
-                value={String(form.status)}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, status: Number(v) as AccountStatus }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ACCOUNT_STATUSES.map((s) => (
-                    <SelectItem key={s.value} value={String(s.value)}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <>
+              {editing.account_type === 3 && detail && (
+                <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted p-3">
+                  <div>
+                    <div className="text-xs text-muted-foreground">信用额度</div>
+                    <div className="mt-0.5 text-sm font-medium">
+                      {formatAmount(detail.credit_limit ?? 0, editing.currency)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">可用额度</div>
+                    <div className="mt-0.5 text-sm font-medium">
+                      {formatAmount(detail.available_balance ?? 0, editing.currency)}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="grid gap-2">
+                <Label>状态</Label>
+                <Select
+                  value={String(form.status)}
+                  onValueChange={(v) =>
+                    setForm((f) => ({ ...f, status: Number(v) as AccountStatus }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCOUNT_STATUSES.map((s) => (
+                      <SelectItem key={s.value} value={String(s.value)}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
           )}
         </div>
 
@@ -302,6 +323,8 @@ function AccountsPage() {
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AccountListItem | null>(null);
+  const [detail, setDetail] = useState<AccountDetail | null>(null);
+  const [fetchingDetail, setFetchingDetail] = useState(false);
   const [deleting, setDeleting] = useState<AccountListItem | null>(null);
 
   const { data: accounts, isLoading, isError, error } = useQuery({
@@ -360,6 +383,20 @@ function AccountsPage() {
         balance: balanceCents,
       };
       createMut.mutate(payload);
+    }
+  };
+
+  const handleEdit = async (acc: AccountListItem) => {
+    setFetchingDetail(true);
+    try {
+      const d = await accountApi.get(acc.id);
+      setDetail(d);
+      setEditing(acc);
+      setFormOpen(true);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "获取账户详情失败");
+    } finally {
+      setFetchingDetail(false);
     }
   };
 
@@ -483,10 +520,8 @@ function AccountsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onClick={() => {
-                            setEditing(acc);
-                            setFormOpen(true);
-                          }}
+                          onClick={() => handleEdit(acc)}
+                          disabled={fetchingDetail}
                         >
                           <Pencil className="mr-2 h-4 w-4" />
                           编辑
@@ -519,11 +554,15 @@ function AccountsPage() {
         open={formOpen}
         onOpenChange={(v) => {
           setFormOpen(v);
-          if (!v) setEditing(null);
+          if (!v) {
+            setEditing(null);
+            setDetail(null);
+          }
         }}
         editing={editing}
+        detail={detail}
         onSubmit={handleSubmit}
-        submitting={createMut.isPending || updateMut.isPending}
+        submitting={createMut.isPending || updateMut.isPending || fetchingDetail}
       />
 
       <AlertDialog open={!!deleting} onOpenChange={(v) => !v && setDeleting(null)}>
