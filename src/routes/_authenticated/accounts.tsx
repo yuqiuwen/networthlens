@@ -156,23 +156,23 @@ function AccountFormDialog({
 }) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  // 打开时初始化
-  const handleOpenChange = (v: boolean) => {
-    if (v) {
-      setForm(
-        editing
-          ? {
-              account_type: editing.account_type,
-              name: editing.name,
-              currency: editing.currency,
-              balance: (editing.balance / 100).toString(),
-              status: editing.status,
-            }
-          : EMPTY_FORM,
-      );
+  // 当打开 / editing / detail 变化时同步表单（优先使用 detail 的最新数据）
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      const src = detail ?? editing;
+      setForm({
+        account_type: src.account_type as AccountType,
+        name: src.name,
+        currency: src.currency,
+        balance: ((src.balance ?? 0) / 100).toString(),
+        status: src.status as AccountStatus,
+      });
+    } else {
+      setForm(EMPTY_FORM);
     }
-    onOpenChange(v);
-  };
+  }, [open, editing, detail]);
+
 
   const isEdit = !!editing;
 
