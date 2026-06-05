@@ -150,7 +150,7 @@ function DashboardPage() {
                     iconType="circle"
                     formatter={(v) => <span className="text-xs text-muted-foreground">{v}</span>}
                   />
-                  <Tooltip formatter={(v: number) => fmtMoney(v)} />
+                  <Tooltip formatter={(v: any) => fmtMoney(Number(v))} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
