@@ -253,26 +253,44 @@ function AccountFormDialog({
           </div>
 
           {isEdit && (
-            <div className="grid gap-2">
-              <Label>状态</Label>
-              <Select
-                value={String(form.status)}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, status: Number(v) as AccountStatus }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ACCOUNT_STATUSES.map((s) => (
-                    <SelectItem key={s.value} value={String(s.value)}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <>
+              {editing.account_type === 3 && detail && (
+                <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted p-3">
+                  <div>
+                    <div className="text-xs text-muted-foreground">信用额度</div>
+                    <div className="mt-0.5 text-sm font-medium">
+                      {formatAmount(detail.credit_limit ?? 0, editing.currency)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">可用额度</div>
+                    <div className="mt-0.5 text-sm font-medium">
+                      {formatAmount(detail.available_balance ?? 0, editing.currency)}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="grid gap-2">
+                <Label>状态</Label>
+                <Select
+                  value={String(form.status)}
+                  onValueChange={(v) =>
+                    setForm((f) => ({ ...f, status: Number(v) as AccountStatus }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCOUNT_STATUSES.map((s) => (
+                      <SelectItem key={s.value} value={String(s.value)}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
           )}
         </div>
 
