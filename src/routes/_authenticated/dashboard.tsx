@@ -110,7 +110,7 @@ function DashboardPage() {
                       border: "1px solid var(--color-border)",
                       borderRadius: 8,
                     }}
-                    formatter={(v: number) => fmtMoney(v)}
+                    formatter={(v: any) => fmtMoney(Number(v))}
                   />
                   <Area
                     type="monotone"
