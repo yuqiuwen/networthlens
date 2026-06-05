@@ -323,6 +323,8 @@ function AccountsPage() {
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AccountListItem | null>(null);
+  const [detail, setDetail] = useState<AccountDetail | null>(null);
+  const [fetchingDetail, setFetchingDetail] = useState(false);
   const [deleting, setDeleting] = useState<AccountListItem | null>(null);
 
   const { data: accounts, isLoading, isError, error } = useQuery({
