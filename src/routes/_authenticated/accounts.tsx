@@ -160,18 +160,18 @@ function AccountFormDialog({
   useEffect(() => {
     if (!open) return;
     if (editing) {
-      const src = detail ?? editing;
       setForm({
-        account_type: src.account_type as AccountType,
-        name: src.name,
-        currency: src.currency,
-        balance: ((src.balance ?? 0) / 100).toString(),
-        status: src.status as AccountStatus,
+        account_type: editing.account_type,
+        name: editing.name,
+        currency: editing.currency,
+        balance: ((editing.balance ?? 0) / 100).toString(),
+        status: editing.status,
       });
     } else {
       setForm(EMPTY_FORM);
     }
   }, [open, editing, detail]);
+
 
 
   const isEdit = !!editing;
