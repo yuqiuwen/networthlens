@@ -386,6 +386,20 @@ function AccountsPage() {
     }
   };
 
+  const handleEdit = async (acc: AccountListItem) => {
+    setFetchingDetail(true);
+    try {
+      const d = await accountApi.get(acc.id);
+      setDetail(d);
+      setEditing(acc);
+      setFormOpen(true);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "获取账户详情失败");
+    } finally {
+      setFetchingDetail(false);
+    }
+  };
+
   // 汇总（仅按币种分组）
   const totalsByCurrency = (accounts ?? []).reduce<Record<string, number>>((acc, a) => {
     if (a.status !== 1) return acc;
