@@ -542,11 +542,15 @@ function AccountsPage() {
         open={formOpen}
         onOpenChange={(v) => {
           setFormOpen(v);
-          if (!v) setEditing(null);
+          if (!v) {
+            setEditing(null);
+            setDetail(null);
+          }
         }}
         editing={editing}
+        detail={detail}
         onSubmit={handleSubmit}
-        submitting={createMut.isPending || updateMut.isPending}
+        submitting={createMut.isPending || updateMut.isPending || fetchingDetail}
       />
 
       <AlertDialog open={!!deleting} onOpenChange={(v) => !v && setDeleting(null)}>
