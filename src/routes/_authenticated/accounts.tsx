@@ -15,15 +15,14 @@ import {
   Loader2,
 } from "lucide-react";
 
+import {ApiError} from '@/lib/api'
 import {
   accountApi,
   type AccountListItem,
-  type AccountStatus,
-  type AccountType,
   type CreateAccountPayload,
   type UpdateAccountPayload,
-  ApiError,
-} from "@/lib/api";
+} from "@/lib/api/account";
+import {AccountStatus, AccountType} from '@/lib/constant'
 import { defineMap } from "@/utils/enum";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

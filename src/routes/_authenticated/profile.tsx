@@ -15,7 +15,7 @@ import {
   Clock,
   Heart,
 } from "lucide-react";
-import { userApi, type UserProfile } from "@/lib/api";
+import { userApi, type UserProfile } from "@/lib/api/user";
 import { defineMap } from "@/utils/enum";
 import { formatTimestamp } from "@/utils/time";
 
