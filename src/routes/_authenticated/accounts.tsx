@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Wallet,
@@ -156,28 +156,28 @@ function AccountFormDialog({
 }) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  // 打开时初始化
-  const handleOpenChange = (v: boolean) => {
-    if (v) {
-      setForm(
-        editing
-          ? {
-              account_type: editing.account_type,
-              name: editing.name,
-              currency: editing.currency,
-              balance: (editing.balance / 100).toString(),
-              status: editing.status,
-            }
-          : EMPTY_FORM,
-      );
+  // 当打开 / editing / detail 变化时同步表单（优先使用 detail 的最新数据）
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setForm({
+        account_type: editing.account_type,
+        name: editing.name,
+        currency: editing.currency,
+        balance: ((editing.balance ?? 0) / 100).toString(),
+        status: editing.status,
+      });
+    } else {
+      setForm(EMPTY_FORM);
     }
-    onOpenChange(v);
-  };
+  }, [open, editing, detail]);
+
+
 
   const isEdit = !!editing;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isEdit ? "编辑账户" : "新增账户"}</DialogTitle>
