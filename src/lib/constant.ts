@@ -43,3 +43,24 @@ export const AccountStatusOptions = [
 
 // 账户状态映射表
 export const AccountStatusMap = defineMap(AccountStatusOptions, "value");
+
+// ------------------------------------------------------------
+
+// 分类类型
+export enum CategoryType {
+  INCOME = 1,
+  EXPENSE = 2,
+  ASSET = 3,
+  LIABILITY = 4,
+  OTHER = 5,
+}
+
+export const CategoryTypeOptions = [
+  { label: "收入", value: CategoryType.INCOME, tone: "text-emerald-500" },
+  { label: "支出", value: CategoryType.EXPENSE, tone: "text-rose-500" },
+  { label: "资产", value: CategoryType.ASSET, tone: "text-sky-500" },
+  { label: "负债", value: CategoryType.LIABILITY, tone: "text-amber-500" },
+  { label: "其他", value: CategoryType.OTHER, tone: "text-muted-foreground" },
+];
+
+export const CategoryTypeMap = defineMap(CategoryTypeOptions, "value");
