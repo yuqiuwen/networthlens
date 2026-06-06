@@ -531,7 +531,7 @@ function CategoriesPage() {
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
               <Tags className="h-10 w-10 text-muted-foreground" />
               <div className="text-sm text-muted-foreground">
-                还没有「{CategoryTypeMap[activeType]?.label}」分类
+                还没有「{CategoryTypeOptions.find((t) => t.value === activeType)?.label}」分类
               </div>
               <Button variant="outline" onClick={() => openCreate(null)}>
                 <Plus className="mr-2 h-4 w-4" />
