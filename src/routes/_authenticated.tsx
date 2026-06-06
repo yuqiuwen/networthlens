@@ -10,6 +10,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   User,
+  Tags,
 } from "lucide-react";
 import { useState } from "react";
 
