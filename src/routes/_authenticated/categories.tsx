@@ -21,7 +21,7 @@ import {
   type CreateCategoryPayload,
   type UpdateCategoryPayload,
 } from "@/lib/api/category";
-import { CategoryType, CategoryTypeOptions, CategoryTypeMap } from "@/lib/constant";
+import { CategoryType, CategoryTypeOptions } from "@/lib/constant";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
