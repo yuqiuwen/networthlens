@@ -96,7 +96,7 @@ export const AssetTypeOptions = [
   { label: "其他", value: AssetType.OTHER, tone: "text-muted-foreground", icon: "📦" },
 ];
 
-export const AssetTypeMap = defineMap(AssetTypeOptions, "value");
+export const AssetTypeMap = defineMap(AssetTypeOptions, "value", ["label", "tone", "icon"]);
 
 // 资产状态
 export enum AssetStatus {
@@ -115,4 +115,4 @@ export const AssetStatusOptions = [
   { label: "已删除", value: AssetStatus.DELETED, color: "bg-destructive/15 text-destructive" },
 ];
 
-export const AssetStatusMap = defineMap(AssetStatusOptions, "value");
+export const AssetStatusMap = defineMap(AssetStatusOptions, "value", ["label", "color"]);
