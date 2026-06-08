@@ -33,7 +33,7 @@ export interface UpdateCategoryPayload {
 
 export const categoryApi = {
   list: (payload: CategoryQueryPayload = {}) =>
-    request.get<CategoryItem[]>("/v1/category", { json: payload }),
+    request.get<CategoryItem[]>("/v1/category", { params: payload }),
   create: (payload: CreateCategoryPayload) =>
     request.post<string>("/v1/category", payload),
   update: (id: string, payload: UpdateCategoryPayload) =>

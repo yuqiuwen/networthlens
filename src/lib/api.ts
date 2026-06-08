@@ -97,6 +97,7 @@ export interface RequestOptions extends KyOptions {
   skipAuth?: boolean;
   /** 内部使用：标记是否已经重试过 */
   _retry?: boolean;
+  params?: Record<string, any>;
 }
 
 async function unwrap<T>(
@@ -104,7 +105,7 @@ async function unwrap<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { skipAuth, _retry, headers, ...rest } = options;
+  const { skipAuth, _retry, headers, params, ...rest } = options;
   const url = toRequestUrl(path);
 
   const finalHeaders = new Headers(headers as HeadersInit | undefined);
@@ -114,6 +115,7 @@ async function unwrap<T>(
     envelope = await kyClient(url, {
       ...rest,
       method,
+      searchParams: params, // 映射到 ky
       headers: skipAuth ? finalHeaders : finalHeaders, // header 注入由 ky hook 完成
       hooks: {
         beforeRequest: [
