@@ -707,12 +707,8 @@ function AssetsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {assets.map((a) => {
-            const meta = AssetTypeMap[a.asset_type] as
-              | { label: string; tone: string; icon: string }
-              | undefined;
-            const status = AssetStatusMap[a.status] as
-              | { label: string; color: string }
-              | undefined;
+            const meta = AssetTypeMap[a.asset_type];
+            const status = AssetStatusMap[a.status];
             const profit =
               a.initial_value != null
                 ? (a.current_value ?? 0) - a.initial_value
