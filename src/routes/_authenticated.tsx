@@ -45,7 +45,7 @@ const NAV = [
   { to: "/dashboard", label: "财务概览", icon: LayoutDashboard },
   { to: "/accounts", label: "账户管理", icon: Wallet },
   { to: "/categories", label: "分类管理", icon: Tags },
-  { to: "/assets", label: "资产 / 负债", icon: Wallet },
+  { to: "/assets", label: "资产管理", icon: Wallet },
   { to: "/transactions", label: "现金流", icon: Receipt },
   { to: "/investments", label: "投资持仓", icon: TrendingUp },
   { to: "/goals", label: "财务目标", icon: Target },
