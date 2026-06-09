@@ -687,6 +687,7 @@ function AssetsPage() {
     const currentCents = Math.round(Number(form.current_value || 0) * 100);
     const quantity = Number(form.quantity || 0);
     const unitPrice = form.unit_price ? Number(form.unit_price) : undefined;
+    const categoryId = form.category_id.trim() || null;
 
     if (editing) {
       const payload: UpdateAssetPayload = {
@@ -696,6 +697,7 @@ function AssetsPage() {
         current_value: currentCents,
         valuation_method: form.valuation_method,
         status: form.status,
+        category_id: categoryId,
         note: form.note.trim() || null,
       };
       updateMut.mutate({ id: editing.id, payload });
@@ -711,6 +713,7 @@ function AssetsPage() {
         unit_price: unitPrice,
         purchase_date: form.purchase_date || null,
         valuation_method: form.valuation_method,
+        category_id: categoryId,
         note: form.note.trim() || null,
       };
       createMut.mutate(payload);
