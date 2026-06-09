@@ -122,6 +122,7 @@ interface FormState {
   purchase_date: string;
   valuation_method: AssetValuationMethod;
   status: AssetStatus;
+  category_id: string;
   note: string;
 }
 
@@ -137,6 +138,7 @@ const EMPTY_FORM: FormState = {
   purchase_date: "",
   valuation_method: AssetValuationMethod.MANUAL,
   status: AssetStatus.NORMAL,
+  category_id: "",
   note: "",
 };
 
