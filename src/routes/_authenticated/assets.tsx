@@ -388,6 +388,31 @@ function AssetFormDialog({
           )}
 
           <div className="grid gap-2">
+            <Label>分类</Label>
+            <Select
+              value={form.category_id || "__none__"}
+              onValueChange={(v) =>
+                setForm((f) => ({
+                  ...f,
+                  category_id: v === "__none__" ? "" : v,
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="选择分类（可选）" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">不选择</SelectItem>
+                {categories?.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
             <Label htmlFor="note">备注</Label>
             <Textarea
               id="note"
