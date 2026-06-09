@@ -22,6 +22,7 @@ import {
   type CreateValuationPayload,
   type PageResp,
 } from "@/lib/api/asset";
+import { categoryApi, type CategoryItem } from "@/lib/api/category";
 import {
   AssetStatus,
   AssetType,
@@ -34,6 +35,7 @@ import {
   AssetValuationSource,
   AssetValuationSourceOptions,
   AssetValuationSourceMap,
+  CategoryType,
 } from "@/lib/constant";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
