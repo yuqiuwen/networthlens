@@ -1,5 +1,10 @@
 import { request } from "@/lib/api";
-import { AssetStatus, AssetType } from "@/lib/constant";
+import {
+  AssetStatus,
+  AssetType,
+  AssetValuationMethod,
+  AssetValuationSource,
+} from "@/lib/constant";
 
 // ---------------- 类型 ----------------
 
@@ -7,47 +12,56 @@ export interface AssetListItem {
   id: string;
   asset_type: AssetType;
   name: string;
-  currency: string;
   /** 当前价值，单位：分 */
   current_value: number;
-  /** 初始价值，单位：分 */
-  initial_value?: number | null;
+  currency: string;
   status: AssetStatus;
-  category_id?: string | null;
-  account_id?: string | null;
-  purchase_date?: string | null;
-  note?: string | null;
-  tags?: string[] | null;
 }
 
-export interface AssetDetail extends AssetListItem {
-  /** 特殊字段，根据类型可能存在 */
-  symbol?: string | null;
-  quantity?: number | null;
-  cost_price?: number | null;
-  latest_price?: number | null;
-  address?: string | null;
-  area?: number | null;
-  brand?: string | null;
+export interface AssetDetail {
+  id: string;
+  asset_type: AssetType;
+  name: string;
+
+  quantity: number;
+  unit: string | null;
+
+  /** 购入金额，单位：分 */
+  purchase_amount: number;
+  /** 当前价值，单位：分 */
+  current_value: number;
+
+  /** 单价（货币原始单位，浮点） */
+  unit_price: number | null;
+
+  currency: string;
+  /** YYYY-MM-DD */
+  purchase_date: string | null;
+
+  valuation_method: AssetValuationMethod;
+  status: AssetStatus;
+
+  image_urls: string[];
+  extra_info: Record<string, unknown> | null;
+
+  note: string | null;
 }
 
 export interface AssetValuation {
   id: string;
-  asset_id: string;
-  /** 单位：分 */
-  value: number;
-  recorded_at: string;
+  /** 估值金额，单位：分 */
+  valuation: number;
+  /** YYYY-MM-DD */
+  valuation_date: string;
+  source: AssetValuationSource;
   note?: string | null;
 }
 
 export interface AssetQueryPayload {
-  asset_type?: AssetType;
-  status?: AssetStatus;
-  category_id?: string;
-  account_id?: string;
-  keyword?: string;
   page?: number;
   limit?: number;
+  asset_type?: AssetType;
+  status?: AssetStatus;
 }
 
 export interface PageResp<T> {
@@ -60,31 +74,42 @@ export interface PageResp<T> {
 export interface CreateAssetPayload {
   asset_type: AssetType;
   name: string;
+
+  quantity?: number;
+  unit?: string | null;
+
+  purchase_amount?: number;
+  current_value?: number;
+
+  unit_price?: number | null;
+
   currency?: string;
-  current_value: number;
-  initial_value?: number;
-  category_id?: string | null;
-  account_id?: string | null;
   purchase_date?: string | null;
+
+  valuation_method?: AssetValuationMethod;
+
+  image_urls?: string[];
+  extra_info?: Record<string, unknown> | null;
+
   note?: string | null;
-  tags?: string[];
 }
 
 export interface UpdateAssetPayload {
   name?: string;
-  category_id?: string | null;
-  account_id?: string | null;
+  quantity?: number;
+  purchase_amount?: number;
   current_value?: number;
-  initial_value?: number;
+  valuation_method?: AssetValuationMethod;
   status?: AssetStatus;
-  purchase_date?: string | null;
   note?: string | null;
-  tags?: string[];
 }
 
 export interface CreateValuationPayload {
-  value: number;
-  recorded_at?: string;
+  /** 单位：分 */
+  valuation: number;
+  /** YYYY-MM-DD */
+  valuation_date: string;
+  source: AssetValuationSource;
   note?: string | null;
 }
 
