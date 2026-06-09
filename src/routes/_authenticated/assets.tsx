@@ -22,8 +22,6 @@ import {
   type CreateValuationPayload,
   type PageResp,
 } from "@/lib/api/asset";
-import { accountApi } from "@/lib/api/account";
-import { categoryApi } from "@/lib/api/category";
 import {
   AssetStatus,
   AssetType,
@@ -31,7 +29,11 @@ import {
   AssetTypeMap,
   AssetStatusOptions,
   AssetStatusMap,
-  CategoryType,
+  AssetValuationMethod,
+  AssetValuationMethodOptions,
+  AssetValuationSource,
+  AssetValuationSourceOptions,
+  AssetValuationSourceMap,
 } from "@/lib/constant";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -83,7 +85,6 @@ export const Route = createFileRoute("/_authenticated/assets")({
 // ---------------- 工具 ----------------
 
 const CURRENCIES = ["CNY", "USD", "EUR", "JPY", "HKD", "GBP"] as const;
-const NONE_VALUE = "__none__";
 
 const formatAmount = (cents: number | null | undefined, currency = "CNY") => {
   const value = (cents ?? 0) / 100;
@@ -98,12 +99,12 @@ const formatAmount = (cents: number | null | undefined, currency = "CNY") => {
   }
 };
 
-const formatDateTime = (s?: string | null) => {
+const formatDate = (s?: string | null) => {
   if (!s) return "—";
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return s;
-  return d.toLocaleString("zh-CN", { hour12: false });
+  return s;
 };
+
+const todayStr = () => new Date().toISOString().slice(0, 10);
 
 // ---------------- 表单 ----------------
 
@@ -111,24 +112,28 @@ interface FormState {
   asset_type: AssetType;
   name: string;
   currency: string;
+  quantity: string;
+  unit: string;
+  purchase_amount: string; // 元
   current_value: string; // 元
-  initial_value: string;
-  category_id: string;
-  account_id: string;
+  unit_price: string;
   purchase_date: string;
+  valuation_method: AssetValuationMethod;
   status: AssetStatus;
   note: string;
 }
 
 const EMPTY_FORM: FormState = {
-  asset_type: null,
+  asset_type: AssetType.OTHER,
   name: "",
   currency: "CNY",
+  quantity: "1",
+  unit: "",
+  purchase_amount: "0",
   current_value: "0",
-  initial_value: "",
-  category_id: "",
-  account_id: "",
+  unit_price: "",
   purchase_date: "",
+  valuation_method: AssetValuationMethod.MANUAL,
   status: AssetStatus.NORMAL,
   note: "",
 };
@@ -138,8 +143,6 @@ function AssetFormDialog({
   onOpenChange,
   editing,
   detail,
-  categories,
-  accounts,
   onSubmit,
   submitting,
 }: {
@@ -147,8 +150,6 @@ function AssetFormDialog({
   onOpenChange: (v: boolean) => void;
   editing: AssetListItem | null;
   detail: AssetDetail | null;
-  categories: { id: string; name: string }[];
-  accounts: { id: string; name: string }[];
   onSubmit: (form: FormState) => void;
   submitting: boolean;
 }) {
@@ -157,21 +158,31 @@ function AssetFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    if (editing) {
-      const src = detail ?? editing;
+    if (editing && detail) {
       setForm({
-        asset_type: src.asset_type,
-        name: src.name,
-        currency: src.currency,
-        current_value: ((src.current_value ?? 0) / 100).toString(),
-        initial_value:
-          src.initial_value != null ? (src.initial_value / 100).toString() : "",
-        category_id: src.category_id ?? "",
-        account_id: src.account_id ?? "",
-        purchase_date: src.purchase_date ?? "",
-        status: src.status ?? AssetStatus.NORMAL,
-        note: src.note ?? "",
+        asset_type: detail.asset_type,
+        name: detail.name,
+        currency: detail.currency,
+        quantity: String(detail.quantity ?? 1),
+        unit: detail.unit ?? "",
+        purchase_amount: ((detail.purchase_amount ?? 0) / 100).toString(),
+        current_value: ((detail.current_value ?? 0) / 100).toString(),
+        unit_price: detail.unit_price != null ? String(detail.unit_price) : "",
+        purchase_date: detail.purchase_date ?? "",
+        valuation_method: detail.valuation_method ?? AssetValuationMethod.MANUAL,
+        status: detail.status ?? AssetStatus.NORMAL,
+        note: detail.note ?? "",
       });
+    } else if (editing) {
+      // 详情未到，先用列表信息占位
+      setForm((f) => ({
+        ...EMPTY_FORM,
+        asset_type: editing.asset_type,
+        name: editing.name,
+        currency: editing.currency,
+        current_value: ((editing.current_value ?? 0) / 100).toString(),
+        status: editing.status,
+      }));
     } else {
       setForm(EMPTY_FORM);
     }
@@ -236,13 +247,60 @@ function AssetFormDialog({
             <Label htmlFor="asset-name">资产名称</Label>
             <Input
               id="asset-name"
-              placeholder="如：招商银行储蓄、贵州茅台"
+              placeholder="如：劳力士手表、贵州茅台"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             />
           </div>
 
+          <div className="grid grid-cols-3 gap-3">
+            <div className="grid gap-2">
+              <Label htmlFor="quantity">数量</Label>
+              <Input
+                id="quantity"
+                type="number"
+                step="any"
+                inputMode="decimal"
+                value={form.quantity}
+                onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="unit">单位</Label>
+              <Input
+                id="unit"
+                placeholder="只/股/㎡"
+                value={form.unit}
+                onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="unit-price">单价（可选）</Label>
+              <Input
+                id="unit-price"
+                type="number"
+                step="any"
+                inputMode="decimal"
+                value={form.unit_price}
+                onChange={(e) => setForm((f) => ({ ...f, unit_price: e.target.value }))}
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-2">
+              <Label htmlFor="purchase-amount">购入金额</Label>
+              <Input
+                id="purchase-amount"
+                type="number"
+                step="0.01"
+                inputMode="decimal"
+                value={form.purchase_amount}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, purchase_amount: e.target.value }))
+                }
+              />
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="current">当前价值</Label>
               <Input
@@ -255,64 +313,6 @@ function AssetFormDialog({
                   setForm((f) => ({ ...f, current_value: e.target.value }))
                 }
               />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="initial">初始价值（可选）</Label>
-              <Input
-                id="initial"
-                type="number"
-                step="0.01"
-                inputMode="decimal"
-                value={form.initial_value}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, initial_value: e.target.value }))
-                }
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
-              <Label>所属分类</Label>
-              <Select
-                value={form.category_id || NONE_VALUE}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, category_id: v === NONE_VALUE ? "" : v }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="未分类" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>未分类</SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label>归属账户</Label>
-              <Select
-                value={form.account_id || NONE_VALUE}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, account_id: v === NONE_VALUE ? "" : v }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="不绑定账户" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>不绑定账户</SelectItem>
-                  {accounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
@@ -328,29 +328,53 @@ function AssetFormDialog({
                 }
               />
             </div>
-            {isEdit && (
-              <div className="grid gap-2">
-                <Label>状态</Label>
-                <Select
-                  value={String(form.status)}
-                  onValueChange={(v) =>
-                    setForm((f) => ({ ...f, status: Number(v) as AssetStatus }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AssetStatusOptions.map((s) => (
-                      <SelectItem key={s.value} value={String(s.value)}>
-                        {s.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="grid gap-2">
+              <Label>估值方式</Label>
+              <Select
+                value={String(form.valuation_method)}
+                onValueChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    valuation_method: Number(v) as AssetValuationMethod,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AssetValuationMethodOptions.map((m) => (
+                    <SelectItem key={m.value} value={String(m.value)}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          {isEdit && (
+            <div className="grid gap-2">
+              <Label>状态</Label>
+              <Select
+                value={String(form.status)}
+                onValueChange={(v) =>
+                  setForm((f) => ({ ...f, status: Number(v) as AssetStatus }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AssetStatusOptions.map((s) => (
+                    <SelectItem key={s.value} value={String(s.value)}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid gap-2">
             <Label htmlFor="note">备注</Label>
@@ -400,11 +424,15 @@ function ValuationDialog({
 }) {
   const queryClient = useQueryClient();
   const [value, setValue] = useState("");
+  const [date, setDate] = useState(todayStr());
+  const [source, setSource] = useState<AssetValuationSource>(AssetValuationSource.MANUAL);
   const [note, setNote] = useState("");
 
   useEffect(() => {
     if (open && asset) {
       setValue((asset.current_value / 100).toString());
+      setDate(todayStr());
+      setSource(AssetValuationSource.MANUAL);
       setNote("");
     }
   }, [open, asset]);
@@ -448,6 +476,34 @@ function ValuationDialog({
               onChange={(e) => setValue(e.target.value)}
             />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-2">
+              <Label>估值日期</Label>
+              <Input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>来源</Label>
+              <Select
+                value={String(source)}
+                onValueChange={(v) => setSource(Number(v) as AssetValuationSource)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AssetValuationSourceOptions.map((s) => (
+                    <SelectItem key={s.value} value={String(s.value)}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="grid gap-2">
             <Label>备注</Label>
             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="选填" />
@@ -457,11 +513,20 @@ function ValuationDialog({
             disabled={mut.isPending}
             onClick={() => {
               const cents = Math.round(Number(value || 0) * 100);
-              if (!cents && cents !== 0) {
+              if (!Number.isFinite(cents)) {
                 toast.error("请输入有效数值");
                 return;
               }
-              mut.mutate({ value: cents, note: note || undefined });
+              if (!date) {
+                toast.error("请选择估值日期");
+                return;
+              }
+              mut.mutate({
+                valuation: cents,
+                valuation_date: date,
+                source,
+                note: note || undefined,
+              });
             }}
           >
             {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -480,22 +545,28 @@ function ValuationDialog({
             <div className="py-6 text-center text-xs text-muted-foreground">暂无历史记录</div>
           ) : (
             <div className="max-h-48 overflow-y-auto space-y-1.5 text-sm">
-              {history.map((v) => (
-                <div
-                  key={v.id}
-                  className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2"
-                >
-                  <div>
-                    <div className="font-medium">{formatAmount(v.value, asset.currency)}</div>
-                    {v.note && (
-                      <div className="text-xs text-muted-foreground">{v.note}</div>
-                    )}
+              {history.map((v) => {
+                const src = AssetValuationSourceMap[v.source];
+                return (
+                  <div
+                    key={v.id}
+                    className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2"
+                  >
+                    <div>
+                      <div className="font-medium">
+                        {formatAmount(v.valuation, asset.currency)}
+                      </div>
+                      {v.note && (
+                        <div className="text-xs text-muted-foreground">{v.note}</div>
+                      )}
+                    </div>
+                    <div className="text-right text-xs text-muted-foreground">
+                      <div>{formatDate(v.valuation_date)}</div>
+                      {src && <div>{src.label}</div>}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {formatDateTime(v.recorded_at)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -527,15 +598,6 @@ function AssetsPage() {
     if (Array.isArray(data)) return data;
     return (data as PageResp<AssetListItem>).items ?? [];
   }, [data]);
-
-  const { data: categoriesData } = useQuery({
-    queryKey: ["categories", CategoryType.ASSET],
-    queryFn: () => categoryApi.list({ category_type: CategoryType.ASSET }),
-  });
-  const { data: accountsData } = useQuery({
-    queryKey: ["accounts"],
-    queryFn: () => accountApi.list(),
-  });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["assets"] });
 
@@ -574,6 +636,7 @@ function AssetsPage() {
 
   const handleEdit = async (a: AssetListItem) => {
     setEditing(a);
+    setDetail(null);
     setFormOpen(true);
     try {
       const d = await assetApi.get(a.id);
@@ -584,18 +647,18 @@ function AssetsPage() {
   };
 
   const handleSubmit = (form: FormState) => {
+    const purchaseCents = Math.round(Number(form.purchase_amount || 0) * 100);
     const currentCents = Math.round(Number(form.current_value || 0) * 100);
-    const initialCents = form.initial_value
-      ? Math.round(Number(form.initial_value) * 100)
-      : undefined;
+    const quantity = Number(form.quantity || 0);
+    const unitPrice = form.unit_price ? Number(form.unit_price) : undefined;
+
     if (editing) {
       const payload: UpdateAssetPayload = {
         name: form.name.trim(),
+        quantity,
+        purchase_amount: purchaseCents,
         current_value: currentCents,
-        initial_value: initialCents,
-        category_id: form.category_id || null,
-        account_id: form.account_id || null,
-        purchase_date: form.purchase_date || null,
+        valuation_method: form.valuation_method,
         status: form.status,
         note: form.note.trim() || null,
       };
@@ -605,12 +668,14 @@ function AssetsPage() {
         asset_type: form.asset_type,
         name: form.name.trim(),
         currency: form.currency,
+        quantity,
+        unit: form.unit.trim() || null,
+        purchase_amount: purchaseCents,
         current_value: currentCents,
-        initial_value: initialCents,
-        category_id: form.category_id || undefined,
-        account_id: form.account_id || undefined,
-        purchase_date: form.purchase_date || undefined,
-        note: form.note.trim() || undefined,
+        unit_price: unitPrice,
+        purchase_date: form.purchase_date || null,
+        valuation_method: form.valuation_method,
+        note: form.note.trim() || null,
       };
       createMut.mutate(payload);
     }
@@ -629,7 +694,7 @@ function AssetsPage() {
         <div>
           <h1 className="font-display text-3xl font-semibold">资产管理</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            管理你的现金、存款、基金、股票、房产、车辆等所有资产。
+            管理你的房产、车辆、收藏品、数码、珠宝等各类资产。
           </p>
         </div>
         <Button
@@ -661,7 +726,12 @@ function AssetsPage() {
       )}
 
       {/* 类型筛选 */}
-      <Tabs value={String(typeFilter)} onValueChange={(v) => setTypeFilter(v === "all" ? "all" : (Number(v) as AssetType))}>
+      <Tabs
+        value={String(typeFilter)}
+        onValueChange={(v) =>
+          setTypeFilter(v === "all" ? "all" : (Number(v) as AssetType))
+        }
+      >
         <TabsList className="flex flex-wrap h-auto">
           <TabsTrigger value="all">全部</TabsTrigger>
           {AssetTypeOptions.map((t) => (
@@ -709,10 +779,6 @@ function AssetsPage() {
           {assets.map((a) => {
             const meta = AssetTypeMap[a.asset_type];
             const status = AssetStatusMap[a.status];
-            const profit =
-              a.initial_value != null
-                ? (a.current_value ?? 0) - a.initial_value
-                : null;
             return (
               <Card key={a.id} className="group relative overflow-hidden">
                 <CardContent className="p-5">
@@ -767,24 +833,7 @@ function AssetsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-3 flex items-center justify-between text-xs">
-                    {profit != null ? (
-                      <span
-                        className={cn(
-                          "font-medium",
-                          profit > 0
-                            ? "text-emerald-500"
-                            : profit < 0
-                              ? "text-rose-500"
-                              : "text-muted-foreground",
-                        )}
-                      >
-                        {profit > 0 ? "+" : ""}
-                        {formatAmount(profit, a.currency)} 浮动盈亏
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                  <div className="mt-3 flex items-center justify-end text-xs">
                     {status && (
                       <Badge variant="secondary" className={cn("font-normal", status.color)}>
                         {status.label}
@@ -809,8 +858,6 @@ function AssetsPage() {
         }}
         editing={editing}
         detail={detail}
-        categories={(categoriesData ?? []).map((c) => ({ id: c.id, name: c.name }))}
-        accounts={(accountsData ?? []).map((a) => ({ id: a.id, name: a.name }))}
         onSubmit={handleSubmit}
         submitting={createMut.isPending || updateMut.isPending}
       />
