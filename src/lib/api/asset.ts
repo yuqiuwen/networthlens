@@ -41,6 +41,8 @@ export interface AssetDetail {
   valuation_method: AssetValuationMethod;
   status: AssetStatus;
 
+  category_id: string | null;
+
   image_urls: string[];
   extra_info: Record<string, unknown> | null;
 
