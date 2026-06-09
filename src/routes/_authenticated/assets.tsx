@@ -121,7 +121,7 @@ interface FormState {
 }
 
 const EMPTY_FORM: FormState = {
-  asset_type: AssetType.CASH,
+  asset_type: null,
   name: "",
   currency: "CNY",
   current_value: "0",
@@ -525,7 +525,7 @@ function AssetsPage() {
   const assets: AssetListItem[] = useMemo(() => {
     if (!data) return [];
     if (Array.isArray(data)) return data;
-    return (data as PageResp<AssetListItem>).list ?? [];
+    return (data as PageResp<AssetListItem>).items ?? [];
   }, [data]);
 
   const { data: categoriesData } = useQuery({

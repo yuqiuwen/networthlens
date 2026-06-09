@@ -117,6 +117,7 @@ async function unwrap<T>(
       method,
       searchParams: params, // 映射到 ky
       headers: skipAuth ? finalHeaders : finalHeaders, // header 注入由 ky hook 完成
+      retry: 0,
       hooks: {
         beforeRequest: [
           ({ request }) => {

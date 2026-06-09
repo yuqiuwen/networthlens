@@ -67,52 +67,76 @@ export const CategoryTypeMap = defineMap(CategoryTypeOptions, "value");
 
 // ------------------------------------------------------------
 
-// 资产类型
+// ==================== 资产类型 ====================
 export enum AssetType {
-  CASH = 1,
-  BANK = 2,
-  PAYMENT = 3,
-  FUND = 4,
-  STOCK = 5,
-  BOND = 6,
-  GOLD = 7,
-  CRYPTO = 8,
-  REAL_ESTATE = 9,
-  VEHICLE = 10,
-  OTHER = 11,
-}
-
-export const AssetTypeOptions = [
-  { label: "现金", value: AssetType.CASH, tone: "text-emerald-500", icon: "💵" },
-  { label: "银行存款", value: AssetType.BANK, tone: "text-sky-500", icon: "🏦" },
-  { label: "支付账户", value: AssetType.PAYMENT, tone: "text-blue-500", icon: "📱" },
-  { label: "基金", value: AssetType.FUND, tone: "text-violet-500", icon: "📊" },
-  { label: "股票", value: AssetType.STOCK, tone: "text-rose-500", icon: "📈" },
-  { label: "债券", value: AssetType.BOND, tone: "text-amber-500", icon: "📜" },
-  { label: "黄金", value: AssetType.GOLD, tone: "text-yellow-500", icon: "🪙" },
-  { label: "数字资产", value: AssetType.CRYPTO, tone: "text-orange-500", icon: "₿" },
-  { label: "房产", value: AssetType.REAL_ESTATE, tone: "text-indigo-500", icon: "🏠" },
-  { label: "车辆", value: AssetType.VEHICLE, tone: "text-cyan-500", icon: "🚗" },
-  { label: "其他", value: AssetType.OTHER, tone: "text-muted-foreground", icon: "📦" },
-];
-
-export const AssetTypeMap = defineMap(AssetTypeOptions, "value", ["label", "tone", "icon"]);
-
-// 资产状态
-export enum AssetStatus {
-  NORMAL = 1,
-  FROZEN = 2,
-  SOLD = 3,
-  CLOSED = 4,
-  DELETED = 5,
-}
-
-export const AssetStatusOptions = [
-  { label: "正常", value: AssetStatus.NORMAL, color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300" },
-  { label: "冻结", value: AssetStatus.FROZEN, color: "bg-amber-500/15 text-amber-600 dark:text-amber-300" },
-  { label: "已出售", value: AssetStatus.SOLD, color: "bg-muted text-muted-foreground" },
-  { label: "已注销", value: AssetStatus.CLOSED, color: "bg-muted text-muted-foreground" },
-  { label: "已删除", value: AssetStatus.DELETED, color: "bg-destructive/15 text-destructive" },
-];
-
-export const AssetStatusMap = defineMap(AssetStatusOptions, "value", ["label", "color"]);
+    REAL_ESTATE = 1,    // 房产
+    VEHICLE = 2,        // 车辆
+    COLLECTIBLE = 3,    // 收藏品
+    OTHER = 4,          // 其他
+    CAMERA = 5,         // 相机
+    MOBILE = 6,         // 手机
+    SHOE = 7,           // 鞋
+    DRESS = 8,          // 服装
+    JEWELRY = 9,        // 珠宝
+    OTHER_DIGITAL = 10, // 其他数码
+  }
+  
+  export const AssetTypeOptions = [
+    { label: "房产", value: AssetType.REAL_ESTATE, tone: "text-indigo-500", icon: "🏠" },
+    { label: "车辆", value: AssetType.VEHICLE, tone: "text-cyan-500", icon: "🚗" },
+    { label: "收藏品", value: AssetType.COLLECTIBLE, tone: "text-amber-500", icon: "🏺" },
+    { label: "相机", value: AssetType.CAMERA, tone: "text-purple-500", icon: "📷" },
+    { label: "手机", value: AssetType.MOBILE, tone: "text-sky-500", icon: "📱" },
+    { label: "鞋", value: AssetType.SHOE, tone: "text-rose-500", icon: "👟" },
+    { label: "服装", value: AssetType.DRESS, tone: "text-pink-500", icon: "👗" },
+    { label: "珠宝", value: AssetType.JEWELRY, tone: "text-yellow-600", icon: "💎" },
+    { label: "其他数码", value: AssetType.OTHER_DIGITAL, tone: "text-gray-500", icon: "🖥️" },
+    { label: "其他", value: AssetType.OTHER, tone: "text-muted-foreground", icon: "📦" },
+  ];
+  
+  export const AssetTypeMap = defineMap(AssetTypeOptions, "value", ["label", "tone", "icon"]);
+  
+  // ==================== 资产状态（与后端 AssetStatus 对齐） ====================
+  export enum AssetStatus {
+    NORMAL = 1, // 正常
+    SOLD = 2,   // 已出售
+    FROZEN = 3, // 冻结
+  }
+  
+  export const AssetStatusOptions = [
+    { label: "正常", value: AssetStatus.NORMAL, color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300" },
+    { label: "已出售", value: AssetStatus.SOLD, color: "bg-muted text-muted-foreground" },
+    { label: "冻结", value: AssetStatus.FROZEN, color: "bg-amber-500/15 text-amber-600 dark:text-amber-300" },
+  ];
+  
+  export const AssetStatusMap = defineMap(AssetStatusOptions, "value", ["label", "color"]);
+  
+  // ==================== 估值方式（与后端 AssetValuationMethod 对齐） ====================
+  export enum AssetValuationMethod {
+    MANUAL = 1,   // 手动
+    MARKET = 2,   // 市场
+    ESTIMATE = 3, // 估算
+  }
+  
+  export const AssetValuationMethodOptions = [
+    { label: "手动", value: AssetValuationMethod.MANUAL },
+    { label: "市场", value: AssetValuationMethod.MARKET },
+    { label: "估算", value: AssetValuationMethod.ESTIMATE },
+  ];
+  
+  export const AssetValuationMethodMap = defineMap(AssetValuationMethodOptions, "value", ["label"]);
+  
+  // ==================== 估值来源（与后端 AssetValuationSource 对齐） ====================
+  export enum AssetValuationSource {
+    MANUAL = 1, // 手动
+    IMPORT = 2, // 导入
+    SYSTEM = 3, // 系统
+  }
+  
+  export const AssetValuationSourceOptions = [
+    { label: "手动", value: AssetValuationSource.MANUAL },
+    { label: "导入", value: AssetValuationSource.IMPORT },
+    { label: "系统", value: AssetValuationSource.SYSTEM },
+  ];
+  
+  export const AssetValuationSourceMap = defineMap(AssetValuationSourceOptions, "value", ["label"]);

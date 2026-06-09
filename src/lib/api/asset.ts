@@ -47,14 +47,14 @@ export interface AssetQueryPayload {
   account_id?: string;
   keyword?: string;
   page?: number;
-  page_size?: number;
+  limit?: number;
 }
 
 export interface PageResp<T> {
-  list: T[];
+  items: T[];
   total: number;
   page: number;
-  page_size: number;
+  limit: number;
 }
 
 export interface CreateAssetPayload {
