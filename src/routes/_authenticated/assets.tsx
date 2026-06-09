@@ -22,6 +22,7 @@ import {
   type CreateValuationPayload,
   type PageResp,
 } from "@/lib/api/asset";
+import { categoryApi, type CategoryItem } from "@/lib/api/category";
 import {
   AssetStatus,
   AssetType,
@@ -34,6 +35,7 @@ import {
   AssetValuationSource,
   AssetValuationSourceOptions,
   AssetValuationSourceMap,
+  CategoryType,
 } from "@/lib/constant";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -120,6 +122,7 @@ interface FormState {
   purchase_date: string;
   valuation_method: AssetValuationMethod;
   status: AssetStatus;
+  category_id: string;
   note: string;
 }
 
@@ -135,6 +138,7 @@ const EMPTY_FORM: FormState = {
   purchase_date: "",
   valuation_method: AssetValuationMethod.MANUAL,
   status: AssetStatus.NORMAL,
+  category_id: "",
   note: "",
 };
 
@@ -156,6 +160,12 @@ function AssetFormDialog({
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const isEdit = !!editing;
 
+  const { data: categories } = useQuery({
+    queryKey: ["categories", "asset"],
+    queryFn: () => categoryApi.list({ category_type: CategoryType.ASSET }),
+    enabled: open,
+  });
+
   useEffect(() => {
     if (!open) return;
     if (editing && detail) {
@@ -171,6 +181,7 @@ function AssetFormDialog({
         purchase_date: detail.purchase_date ?? "",
         valuation_method: detail.valuation_method ?? AssetValuationMethod.MANUAL,
         status: detail.status ?? AssetStatus.NORMAL,
+        category_id: detail.category_id ?? "",
         note: detail.note ?? "",
       });
     } else if (editing) {
@@ -375,6 +386,31 @@ function AssetFormDialog({
               </Select>
             </div>
           )}
+
+          <div className="grid gap-2">
+            <Label>分类</Label>
+            <Select
+              value={form.category_id || "__none__"}
+              onValueChange={(v) =>
+                setForm((f) => ({
+                  ...f,
+                  category_id: v === "__none__" ? "" : v,
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="选择分类（可选）" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">不选择</SelectItem>
+                {categories?.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="grid gap-2">
             <Label htmlFor="note">备注</Label>
@@ -651,6 +687,7 @@ function AssetsPage() {
     const currentCents = Math.round(Number(form.current_value || 0) * 100);
     const quantity = Number(form.quantity || 0);
     const unitPrice = form.unit_price ? Number(form.unit_price) : undefined;
+    const categoryId = form.category_id.trim() || null;
 
     if (editing) {
       const payload: UpdateAssetPayload = {
@@ -660,6 +697,7 @@ function AssetsPage() {
         current_value: currentCents,
         valuation_method: form.valuation_method,
         status: form.status,
+        category_id: categoryId,
         note: form.note.trim() || null,
       };
       updateMut.mutate({ id: editing.id, payload });
@@ -675,6 +713,7 @@ function AssetsPage() {
         unit_price: unitPrice,
         purchase_date: form.purchase_date || null,
         valuation_method: form.valuation_method,
+        category_id: categoryId,
         note: form.note.trim() || null,
       };
       createMut.mutate(payload);

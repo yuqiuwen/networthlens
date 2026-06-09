@@ -41,6 +41,8 @@ export interface AssetDetail {
   valuation_method: AssetValuationMethod;
   status: AssetStatus;
 
+  category_id: string | null;
+
   image_urls: string[];
   extra_info: Record<string, unknown> | null;
 
@@ -88,6 +90,8 @@ export interface CreateAssetPayload {
 
   valuation_method?: AssetValuationMethod;
 
+  category_id?: string | null;
+
   image_urls?: string[];
   extra_info?: Record<string, unknown> | null;
 
@@ -101,6 +105,7 @@ export interface UpdateAssetPayload {
   current_value?: number;
   valuation_method?: AssetValuationMethod;
   status?: AssetStatus;
+  category_id?: string | null;
   note?: string | null;
 }
 
