@@ -160,6 +160,12 @@ function AssetFormDialog({
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const isEdit = !!editing;
 
+  const { data: categories } = useQuery({
+    queryKey: ["categories", "asset"],
+    queryFn: () => categoryApi.list({ category_type: CategoryType.ASSET }),
+    enabled: open,
+  });
+
   useEffect(() => {
     if (!open) return;
     if (editing && detail) {
@@ -175,6 +181,7 @@ function AssetFormDialog({
         purchase_date: detail.purchase_date ?? "",
         valuation_method: detail.valuation_method ?? AssetValuationMethod.MANUAL,
         status: detail.status ?? AssetStatus.NORMAL,
+        category_id: detail.category_id ?? "",
         note: detail.note ?? "",
       });
     } else if (editing) {
