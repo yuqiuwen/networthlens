@@ -78,6 +78,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { CategoryTreeSelect } from "@/components/category-tree-select";
 
 export const Route = createFileRoute("/_authenticated/assets")({
   head: () => ({ meta: [{ title: "资产管理 · NetWorthLens" }] }),
@@ -389,27 +390,18 @@ function AssetFormDialog({
 
           <div className="grid gap-2">
             <Label>分类</Label>
-            <Select
-              value={form.category_id || "__none__"}
-              onValueChange={(v) =>
+            <CategoryTreeSelect
+              categories={categories ?? []}
+              value={form.category_id || null}
+              onChange={(v) =>
                 setForm((f) => ({
                   ...f,
-                  category_id: v === "__none__" ? "" : v,
+                  category_id: v ?? "",
                 }))
               }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="选择分类（可选）" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">不选择</SelectItem>
-                {categories?.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="选择分类（可选）"
+              allowClear
+            />
           </div>
 
           <div className="grid gap-2">
