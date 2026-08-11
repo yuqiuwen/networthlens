@@ -11,6 +11,7 @@ import {
   PanelLeftOpen,
   User,
   Tags,
+  Bot,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -49,6 +50,7 @@ const NAV = [
   { to: "/transactions", label: "现金流", icon: Receipt },
   { to: "/investments", label: "投资持仓", icon: TrendingUp },
   { to: "/goals", label: "财务目标", icon: Target },
+  { to: "/assistant", label: "AI 助手", icon: Bot },
 ] as const;
 
 function AuthenticatedLayout() {
