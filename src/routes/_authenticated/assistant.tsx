@@ -435,7 +435,6 @@ function Markdown({ content }: { content: string }) {
         remarkPlugins={[remarkGfm]}
         components={mdComponents}
       >
-      >
         {content}
       </ReactMarkdown>
     </div>
