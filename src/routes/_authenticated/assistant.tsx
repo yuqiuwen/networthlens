@@ -410,28 +410,31 @@ function CopyButton({ text, className }: { text: string; className?: string }) {
   );
 }
 
+const mdComponents: Components = {
+  code: ({ className, children, ...props }) => {
+    const isBlock = /language-/.test(className ?? "");
+    if (isBlock) {
+      return (
+        <code className={cn("text-xs", className)} {...props}>
+          {children}
+        </code>
+      );
+    }
+    return (
+      <code className="rounded bg-muted px-1 py-0.5 text-[0.85em]" {...props}>
+        {children}
+      </code>
+    );
+  },
+};
+
 function Markdown({ content }: { content: string }) {
   return (
     <div className="space-y-2 [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_table]:w-full [&_table]:text-xs [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc [&_ul]:pl-5">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={mdComponents}
-          code: ({ className, children, ...props }) => {
-            const isBlock = /language-/.test(className ?? "");
-            if (isBlock) {
-              return (
-                <code className={cn("text-xs", className)} {...props}>
-                  {children}
-                </code>
-              );
-            }
-            return (
-              <code className="rounded bg-muted px-1 py-0.5 text-[0.85em]" {...props}>
-                {children}
-              </code>
-            );
-          },
-        }}
+      >
       >
         {content}
       </ReactMarkdown>
