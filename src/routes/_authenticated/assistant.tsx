@@ -1,7 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Bot, Loader2, MessageSquarePlus, Send, Square, Trash2, User, Wrench } from "lucide-react";
+import {
+  Bot,
+  Check,
+  Copy,
+  Loader2,
+  MessageSquarePlus,
+  Send,
+  Square,
+  Trash2,
+  User,
+  Wrench,
+} from "lucide-react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 
 import {
