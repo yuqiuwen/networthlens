@@ -1,7 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Bot, Loader2, MessageSquarePlus, Send, Square, Trash2, User, Wrench } from "lucide-react";
+import {
+  Bot,
+  Check,
+  Copy,
+  Loader2,
+  MessageSquarePlus,
+  Send,
+  Square,
+  Trash2,
+  User,
+  Wrench,
+} from "lucide-react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 
 import {
@@ -338,7 +351,7 @@ function MessageBubble({ message }: { message: ViewMessage }) {
   const isUser = message.role === AgentRole.USER;
 
   return (
-    <div className={cn("flex gap-3", isUser && "flex-row-reverse")}>
+    <div className={cn("group flex gap-3", isUser && "flex-row-reverse")}>
       <div
         className={cn(
           "h-7 w-7 shrink-0 rounded-full flex items-center justify-center",
@@ -347,16 +360,83 @@ function MessageBubble({ message }: { message: ViewMessage }) {
       >
         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
       </div>
-      <div
-        className={cn(
-          "max-w-[80%] text-sm leading-relaxed whitespace-pre-wrap break-words",
-          isUser
-            ? "rounded-2xl bg-primary text-primary-foreground px-3.5 py-2"
-            : "text-foreground",
+      <div className={cn("max-w-[80%] min-w-0", isUser && "flex flex-col items-end")}>
+        <div
+          className={cn(
+            "text-sm leading-relaxed break-words",
+            isUser
+              ? "rounded-2xl bg-primary text-primary-foreground px-3.5 py-2 whitespace-pre-wrap"
+              : "text-foreground",
+          )}
+        >
+          {isUser ? (
+            message.content
+          ) : message.content ? (
+            <Markdown content={message.content} />
+          ) : message.pending ? (
+            "…"
+          ) : null}
+        </div>
+        {!!message.content && (
+          <CopyButton text={message.content} className={cn(isUser && "self-end")} />
         )}
-      >
-        {message.content || (message.pending ? "…" : "")}
       </div>
+    </div>
+  );
+}
+
+function CopyButton({ text, className }: { text: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      aria-label="复制"
+      className={cn(
+        "mt-1 inline-flex items-center gap-1 rounded-md p-1 text-xs text-muted-foreground opacity-0 transition hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100",
+        className,
+      )}
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          toast.error("复制失败");
+        }
+      }}
+    >
+      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
+  );
+}
+
+const mdComponents: Components = {
+  code: ({ className, children, ...props }) => {
+    const isBlock = /language-/.test(className ?? "");
+    if (isBlock) {
+      return (
+        <code className={cn("text-xs", className)} {...props}>
+          {children}
+        </code>
+      );
+    }
+    return (
+      <code className="rounded bg-muted px-1 py-0.5 text-[0.85em]" {...props}>
+        {children}
+      </code>
+    );
+  },
+};
+
+function Markdown({ content }: { content: string }) {
+  return (
+    <div className="space-y-2 [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_table]:w-full [&_table]:text-xs [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc [&_ul]:pl-5">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={mdComponents}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   );
 }
