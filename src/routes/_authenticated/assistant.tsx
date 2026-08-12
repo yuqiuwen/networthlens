@@ -371,7 +371,77 @@ function AssistantPage() {
   );
 }
 
+function SessionItem({
+  session,
+  activeId,
+  collapsed,
+  onActivate,
+  onDelete,
+}: {
+  session: ChatSession;
+  activeId: string | null;
+  collapsed: boolean;
+  onActivate: () => void;
+  onDelete: () => void;
+}) {
+  const title = session.title || "未命名会话";
+
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={onActivate}
+        className={cn(
+          "w-full flex items-center justify-center rounded-lg px-2 py-2 text-sm hover:bg-muted",
+          activeId === session.id && "bg-muted font-medium",
+        )}
+        title={title}
+        aria-label={title}
+      >
+        <MessageSquarePlus className="h-4 w-4" />
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "group flex items-center gap-1 rounded-lg px-2 py-2 text-sm cursor-pointer hover:bg-muted",
+        activeId === session.id && "bg-muted font-medium",
+      )}
+      onClick={onActivate}
+    >
+      <span className="flex-1 min-w-0 truncate">{title}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 shrink-0 text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted"
+            aria-label="会话操作"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" side="right">
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            删除
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 function MessageBubble({ message }: { message: ViewMessage }) {
+
   if (message.role === AgentRole.TOOL) {
     return (
       <details className="rounded-lg border bg-muted/40 px-3 py-2 text-xs">
