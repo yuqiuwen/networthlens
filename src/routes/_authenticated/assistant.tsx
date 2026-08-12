@@ -13,8 +13,7 @@ import {
   User,
   Wrench,
 } from "lucide-react";
-import ReactMarkdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 
 import {
