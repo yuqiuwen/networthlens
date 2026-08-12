@@ -84,9 +84,11 @@ function AssistantPage() {
   const [messages, setMessages] = useState<ViewMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [status, setStatus] = useState<string>("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
 
   const sessionsQuery = useQuery({
     queryKey: ["chat", "sessions"],
