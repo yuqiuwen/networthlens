@@ -272,7 +272,21 @@ function AssistantPage() {
                 <PanelLeftClose className="h-4 w-4" />
               )}
             </Button>
-            {!sidebarCollapsed && (
+            {sidebarCollapsed ? (
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                aria-label="新建对话"
+                onClick={() => {
+                  stop();
+                  setActiveId(null);
+                  setMessages([]);
+                }}
+              >
+                <MessageSquarePlus className="h-4 w-4" />
+              </Button>
+            ) : (
               <Button
                 variant="outline"
                 className="w-full justify-start"
@@ -288,11 +302,11 @@ function AssistantPage() {
             )}
           </div>
           <ScrollArea className="flex-1">
-            <div className="p-2 space-y-1">
+            <div className={cn("space-y-1", sidebarCollapsed ? "px-1 py-2" : "p-2")}>
               {sessionsQuery.isLoading && (
                 <div className="p-3 text-sm text-muted-foreground">加载中...</div>
               )}
-              {!sessionsQuery.isLoading && sessions.length === 0 && (
+              {!sessionsQuery.isLoading && sessions.length === 0 && !sidebarCollapsed && (
                 <div className="p-3 text-sm text-muted-foreground">暂无会话</div>
               )}
               {sessions.map((s) => (
@@ -310,6 +324,7 @@ function AssistantPage() {
               ))}
             </div>
           </ScrollArea>
+
         </div>
 
 
