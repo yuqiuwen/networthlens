@@ -6,8 +6,10 @@ import {
   Check,
   Copy,
   Loader2,
+  MessageSquare,
   MessageSquarePlus,
   MoreHorizontal,
+
   PanelLeftClose,
   PanelLeftOpen,
   Send,
