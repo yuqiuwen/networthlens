@@ -95,8 +95,24 @@ function AssistantPage() {
   }, [activeId, historyQuery.data]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "auto" });
-  }, [activeId, historyQuery.data]);
+    if (messages.length === 0) return;
+    const scroll = () => {
+      const el = bottomRef.current;
+      if (!el) return;
+      const viewport = el.closest<HTMLElement>("[data-radix-scroll-area-viewport]");
+      if (viewport) viewport.scrollTop = viewport.scrollHeight;
+      else el.scrollIntoView({ behavior: "auto", block: "end" });
+    };
+    const r1 = requestAnimationFrame(() => {
+      scroll();
+      requestAnimationFrame(scroll);
+    });
+    const t = setTimeout(scroll, 120);
+    return () => {
+      cancelAnimationFrame(r1);
+      clearTimeout(t);
+    };
+  }, [activeId, messages]);
 
   useEffect(() => {
     inputRef.current?.focus();
