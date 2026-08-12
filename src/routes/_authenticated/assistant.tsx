@@ -7,12 +7,16 @@ import {
   Copy,
   Loader2,
   MessageSquarePlus,
+  MoreHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
   Send,
   Square,
   Trash2,
   User,
   Wrench,
 } from "lucide-react";
+
 import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
 import { mermaid } from "@streamdown/mermaid";
