@@ -91,12 +91,12 @@ function AssistantPage() {
     const page = historyQuery.data;
     if (!page) return;
     const list = page.items ?? page.list ?? [];
-    setMessages([...list].reverse().map(toView));
+    setMessages(list.map(toView));
   }, [activeId, historyQuery.data]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, status]);
+    bottomRef.current?.scrollIntoView({ behavior: "auto" });
+  }, [activeId, historyQuery.data]);
 
   useEffect(() => {
     inputRef.current?.focus();
