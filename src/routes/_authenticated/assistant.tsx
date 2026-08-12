@@ -253,22 +253,37 @@ function AssistantPage() {
         <h1 className="font-display text-2xl font-semibold">AI 助手</h1>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+      <div className={cn("grid gap-4 transition-all", sidebarCollapsed ? "lg:grid-cols-[72px_1fr]" : "lg:grid-cols-[260px_1fr]")}>
         {/* 会话列表 */}
-        <div className="rounded-xl border bg-card flex flex-col max-h-[80vh]">
-          <div className="p-3 border-b">
+        <div className="rounded-xl border bg-card flex flex-col max-h-[80vh] overflow-hidden">
+          <div className="p-3 border-b flex items-center gap-2">
             <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => {
-                stop();
-                setActiveId(null);
-                setMessages([]);
-              }}
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              aria-label={sidebarCollapsed ? "展开会话列表" : "折叠会话列表"}
+              onClick={() => setSidebarCollapsed((v) => !v)}
             >
-              <MessageSquarePlus className="h-4 w-4 mr-2" />
-              新建对话
+              {sidebarCollapsed ? (
+                <PanelLeftOpen className="h-4 w-4" />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" />
+              )}
             </Button>
+            {!sidebarCollapsed && (
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => {
+                  stop();
+                  setActiveId(null);
+                  setMessages([]);
+                }}
+              >
+                <MessageSquarePlus className="h-4 w-4 mr-2" />
+                新建对话
+              </Button>
+            )}
           </div>
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-1">
@@ -279,33 +294,22 @@ function AssistantPage() {
                 <div className="p-3 text-sm text-muted-foreground">暂无会话</div>
               )}
               {sessions.map((s) => (
-                <div
+                <SessionItem
                   key={s.id}
-                  className={cn(
-                    "group flex items-center gap-1 rounded-lg px-2 py-2 text-sm cursor-pointer hover:bg-muted",
-                    activeId === s.id && "bg-muted font-medium",
-                  )}
-                  onClick={() => {
+                  session={s}
+                  activeId={activeId}
+                  collapsed={sidebarCollapsed}
+                  onActivate={() => {
                     stop();
                     setActiveId(s.id);
                   }}
-                >
-                  <span className="flex-1 truncate">{s.title || "未命名会话"}</span>
-                  <button
-                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-1"
-                    aria-label="删除会话"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteMutation.mutate(s.id);
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                  onDelete={() => deleteMutation.mutate(s.id)}
+                />
               ))}
             </div>
           </ScrollArea>
         </div>
+
 
         {/* 对话区 */}
         <div className="rounded-xl border bg-card flex flex-col h-[80vh]">
