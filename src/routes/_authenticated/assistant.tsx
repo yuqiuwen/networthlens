@@ -6,13 +6,19 @@ import {
   Check,
   Copy,
   Loader2,
+  MessageSquare,
   MessageSquarePlus,
+  MoreHorizontal,
+
+  PanelLeftClose,
+  PanelLeftOpen,
   Send,
   Square,
   Trash2,
   User,
   Wrench,
 } from "lucide-react";
+
 import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
 import { mermaid } from "@streamdown/mermaid";
@@ -31,7 +37,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+
 
 export const Route = createFileRoute("/_authenticated/assistant")({
   head: () => ({
@@ -73,9 +86,11 @@ function AssistantPage() {
   const [messages, setMessages] = useState<ViewMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [status, setStatus] = useState<string>("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
 
   const sessionsQuery = useQuery({
     queryKey: ["chat", "sessions"],
@@ -240,59 +255,78 @@ function AssistantPage() {
         <h1 className="font-display text-2xl font-semibold">AI 助手</h1>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+      <div className={cn("grid gap-4 transition-all", sidebarCollapsed ? "lg:grid-cols-[72px_1fr]" : "lg:grid-cols-[260px_1fr]")}>
         {/* 会话列表 */}
-        <div className="rounded-xl border bg-card flex flex-col max-h-[80vh]">
-          <div className="p-3 border-b">
+        <div className="rounded-xl border bg-card flex flex-col max-h-[80vh] overflow-hidden">
+          <div className="p-3 border-b flex items-center gap-2">
             <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => {
-                stop();
-                setActiveId(null);
-                setMessages([]);
-              }}
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              aria-label={sidebarCollapsed ? "展开会话列表" : "折叠会话列表"}
+              onClick={() => setSidebarCollapsed((v) => !v)}
             >
-              <MessageSquarePlus className="h-4 w-4 mr-2" />
-              新建对话
+              {sidebarCollapsed ? (
+                <PanelLeftOpen className="h-4 w-4" />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" />
+              )}
             </Button>
+            {sidebarCollapsed ? (
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                aria-label="新建对话"
+                onClick={() => {
+                  stop();
+                  setActiveId(null);
+                  setMessages([]);
+                }}
+              >
+                <MessageSquarePlus className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => {
+                  stop();
+                  setActiveId(null);
+                  setMessages([]);
+                }}
+              >
+                <MessageSquarePlus className="h-4 w-4 mr-2" />
+                新建对话
+              </Button>
+            )}
           </div>
           <ScrollArea className="flex-1">
-            <div className="p-2 space-y-1">
+            <div className={cn("space-y-1", sidebarCollapsed ? "px-1 py-2" : "p-2")}>
               {sessionsQuery.isLoading && (
                 <div className="p-3 text-sm text-muted-foreground">加载中...</div>
               )}
-              {!sessionsQuery.isLoading && sessions.length === 0 && (
+              {!sessionsQuery.isLoading && sessions.length === 0 && !sidebarCollapsed && (
                 <div className="p-3 text-sm text-muted-foreground">暂无会话</div>
               )}
               {sessions.map((s) => (
-                <div
+                <SessionItem
                   key={s.id}
-                  className={cn(
-                    "group flex items-center gap-1 rounded-lg px-2 py-2 text-sm cursor-pointer hover:bg-muted",
-                    activeId === s.id && "bg-muted font-medium",
-                  )}
-                  onClick={() => {
+                  session={s}
+                  activeId={activeId}
+                  collapsed={sidebarCollapsed}
+                  onActivate={() => {
                     stop();
                     setActiveId(s.id);
                   }}
-                >
-                  <span className="flex-1 truncate">{s.title || "未命名会话"}</span>
-                  <button
-                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-1"
-                    aria-label="删除会话"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteMutation.mutate(s.id);
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                  onDelete={() => deleteMutation.mutate(s.id)}
+                />
               ))}
             </div>
           </ScrollArea>
+
         </div>
+
 
         {/* 对话区 */}
         <div className="rounded-xl border bg-card flex flex-col h-[80vh]">
@@ -354,7 +388,77 @@ function AssistantPage() {
   );
 }
 
+function SessionItem({
+  session,
+  activeId,
+  collapsed,
+  onActivate,
+  onDelete,
+}: {
+  session: ChatSession;
+  activeId: string | null;
+  collapsed: boolean;
+  onActivate: () => void;
+  onDelete: () => void;
+}) {
+  const title = session.title || "未命名会话";
+
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={onActivate}
+        className={cn(
+          "w-full flex items-center justify-center rounded-lg px-2 py-2 text-sm hover:bg-muted",
+          activeId === session.id && "bg-muted font-medium",
+        )}
+        title={title}
+        aria-label={title}
+      >
+        <MessageSquarePlus className="h-4 w-4" />
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "group flex items-center gap-1 rounded-lg px-2 py-2 text-sm cursor-pointer hover:bg-muted",
+        activeId === session.id && "bg-muted font-medium",
+      )}
+      onClick={onActivate}
+    >
+      <span className="flex-1 min-w-0 truncate">{title}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 shrink-0 text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted"
+            aria-label="会话操作"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" side="right">
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            删除
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 function MessageBubble({ message }: { message: ViewMessage }) {
+
   if (message.role === AgentRole.TOOL) {
     return (
       <details className="rounded-lg border bg-muted/40 px-3 py-2 text-xs">
