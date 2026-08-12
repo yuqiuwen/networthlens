@@ -22,6 +22,7 @@ export enum ChatEventType {
   CONTENT = 5,
   FINISH = 6,
   ERROR = 7,
+  THINKING = 8
 }
 
 // ==================== 类型 ====================
@@ -38,6 +39,7 @@ export interface ChatMessage {
   role: AgentRole;
   content: string;
   tool_name: string | null;
+  dispaly_name: string | null;
   token_count: number | null;
   model: string | null;
   ctime: string;

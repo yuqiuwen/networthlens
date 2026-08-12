@@ -14,6 +14,10 @@ import {
   Wrench,
 } from "lucide-react";
 import { Streamdown } from "streamdown";
+import { code } from "@streamdown/code";
+import { mermaid } from "@streamdown/mermaid";
+import { math } from "@streamdown/math";
+import { cjk } from "@streamdown/cjk";
 import { toast } from "sonner";
 
 import {
@@ -48,16 +52,17 @@ interface ViewMessage {
   role: AgentRole;
   content: string;
   tool_name?: string | null;
+  display_name?: string | null;
   pending?: boolean;
 }
 
 function toView(m: ChatMessage): ViewMessage {
-  return { id: m.id, role: m.role, content: m.content, tool_name: m.tool_name };
+  return { id: m.id, role: m.role, content: m.content, tool_name: m.tool_name, display_name: m.dispaly_name };
 }
 
 function pickText(data: Record<string, any>): string {
   return (
-    data?.content ?? data?.delta ?? data?.text ?? data?.answer ?? data?.message ?? ""
+    data?.text ?? data?.message ?? ""
   ).toString();
 }
 
@@ -178,7 +183,7 @@ function AssistantPage() {
               setStatus(pickText(data) || "处理中...");
               break;
             case ChatEventType.TOOL_CALL:
-              setStatus(`调用工具：${data.tool_name ?? data.name ?? ""}`);
+              setStatus(`调用工具：${data?.display_name ?? data.tool_name ?? "" }`);
               setMessages((prev) => [
                 ...prev,
                 {
@@ -186,12 +191,16 @@ function AssistantPage() {
                   role: AgentRole.TOOL,
                   content: JSON.stringify(data.arguments ?? data.args ?? data, null, 2),
                   tool_name: data.tool_name ?? data.name ?? "tool",
+                  display_name: data?.display_name ?? data.tool_name ?? ""
                 },
               ]);
               break;
             case ChatEventType.TOOL_RESULT:
-              setStatus("");
+              setStatus("分析完成");
               break;
+            case ChatEventType.THINKING:
+                setStatus("正在分析...");
+                break;
             case ChatEventType.CONTENT:
               setStatus("");
               appendToAssistant(pickText(data));
@@ -229,14 +238,11 @@ function AssistantPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-semibold">AI 助手</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          用自然语言询问你的账户、资产与现金流状况。
-        </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
         {/* 会话列表 */}
-        <div className="rounded-xl border bg-card flex flex-col max-h-[70vh]">
+        <div className="rounded-xl border bg-card flex flex-col max-h-[80vh]">
           <div className="p-3 border-b">
             <Button
               variant="outline"
@@ -289,7 +295,7 @@ function AssistantPage() {
         </div>
 
         {/* 对话区 */}
-        <div className="rounded-xl border bg-card flex flex-col h-[70vh]">
+        <div className="rounded-xl border bg-card flex flex-col h-[80vh]">
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-4">
               {messages.length === 0 && !streaming && (
@@ -354,7 +360,7 @@ function MessageBubble({ message }: { message: ViewMessage }) {
       <details className="rounded-lg border bg-muted/40 px-3 py-2 text-xs">
         <summary className="cursor-pointer flex items-center gap-2 text-muted-foreground">
           <Wrench className="h-3.5 w-3.5" />
-          工具调用：{message.tool_name}
+          工具调用：{message.display_name ?? message.tool_name}
         </summary>
         <pre className="mt-2 whitespace-pre-wrap break-all text-muted-foreground">
           {message.content}
@@ -387,7 +393,7 @@ function MessageBubble({ message }: { message: ViewMessage }) {
           {isUser ? (
             message.content
           ) : message.content ? (
-            <Markdown content={message.content} />
+            <Markdown key={message.id} content={message.content} isPending={message.pending ?? false}/>
           ) : message.pending ? (
             "…"
           ) : null}
@@ -425,11 +431,15 @@ function CopyButton({ text, className }: { text: string; className?: string }) {
   );
 }
 
-function Markdown({ content }: { content: string }) {
+function Markdown({ key, content, isPending }: { key: string; content: string; isPending: boolean }) {
   return (
     <Streamdown
+      key={key}
       className="space-y-2 text-sm [&_a]:text-primary [&_a]:underline [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold"
       shikiTheme={["github-light", "github-dark"]}
+      animated
+      isAnimating={isPending}
+      plugins={{ code, mermaid, math, cjk }}
     >
       {content}
     </Streamdown>

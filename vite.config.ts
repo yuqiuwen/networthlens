@@ -7,7 +7,7 @@ import tsConfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const backendTarget = env.VITE_API_PROXY_TARGET || "http://127.0.0.1:5555";
+  const backendTarget = env.VITE_API_PROXY_TARGET || "http://127.0.0.1:16789";
 
   return {
     server: {
