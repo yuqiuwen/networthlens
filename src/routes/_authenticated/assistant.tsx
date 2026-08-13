@@ -415,7 +415,8 @@ function SessionItem({
         title={title}
         aria-label={title}
       >
-        <MessageSquarePlus className="h-4 w-4" />
+        <MessageSquare className="h-4 w-4" />
+
       </button>
     );
   }
