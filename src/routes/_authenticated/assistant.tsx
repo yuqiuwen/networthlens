@@ -272,6 +272,7 @@ function AssistantPage() {
                 <MessageSquarePlus className="h-4 w-4 mr-2" />
                 新建对话
               </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
