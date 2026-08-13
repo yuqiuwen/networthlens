@@ -434,7 +434,7 @@ function SessionItem({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 shrink-0 text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted"
+            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 shrink-0 text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted transition-opacity duration-150"
             aria-label="会话操作"
             onClick={(e) => e.stopPropagation()}
           >
