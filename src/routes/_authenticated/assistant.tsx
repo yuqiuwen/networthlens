@@ -259,19 +259,6 @@ function AssistantPage() {
         {/* 会话列表 */}
         <div className="rounded-xl border bg-card flex flex-col max-h-[80vh] overflow-hidden">
           <div className="p-3 border-b flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0"
-              aria-label={sidebarCollapsed ? "展开会话列表" : "折叠会话列表"}
-              onClick={() => setSidebarCollapsed((v) => !v)}
-            >
-              {sidebarCollapsed ? (
-                <PanelLeftOpen className="h-4 w-4" />
-              ) : (
-                <PanelLeftClose className="h-4 w-4" />
-              )}
-            </Button>
             {sidebarCollapsed ? (
               <Button
                 variant="outline"
@@ -289,7 +276,7 @@ function AssistantPage() {
             ) : (
               <Button
                 variant="outline"
-                className="w-full justify-start"
+                className="flex-1 justify-start"
                 onClick={() => {
                   stop();
                   setActiveId(null);
@@ -300,6 +287,19 @@ function AssistantPage() {
                 新建对话
               </Button>
             )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              aria-label={sidebarCollapsed ? "展开会话列表" : "折叠会话列表"}
+              onClick={() => setSidebarCollapsed((v) => !v)}
+            >
+              {sidebarCollapsed ? (
+                <PanelLeftOpen className="h-4 w-4" />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" />
+              )}
+            </Button>
           </div>
           <ScrollArea className="flex-1">
             <div className={cn("space-y-1", sidebarCollapsed ? "px-1 py-2" : "p-2")}>
@@ -434,7 +434,7 @@ function SessionItem({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 shrink-0 text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted"
+            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 shrink-0 text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted transition-opacity duration-150"
             aria-label="会话操作"
             onClick={(e) => e.stopPropagation()}
           >
