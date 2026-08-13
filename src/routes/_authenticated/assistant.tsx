@@ -255,28 +255,14 @@ function AssistantPage() {
         <h1 className="font-display text-2xl font-semibold">AI 助手</h1>
       </div>
 
-      <div className={cn("grid gap-4 transition-all", sidebarCollapsed ? "lg:grid-cols-[72px_1fr]" : "lg:grid-cols-[260px_1fr]")}>
+      <div className={cn("grid gap-4 transition-all", sidebarCollapsed ? "lg:grid-cols-[72px_minmax(0,1fr)]" : "lg:grid-cols-[260px_minmax(0,1fr)]")}>
         {/* 会话列表 */}
-        <div className="rounded-xl border bg-card flex flex-col max-h-[80vh] overflow-hidden">
-          <div className="p-3 border-b flex items-center gap-2">
-            {sidebarCollapsed ? (
+        <div className="min-w-0 rounded-xl border bg-card flex flex-col max-h-[80vh] overflow-hidden">
+          <div className={cn("p-3 border-b flex items-center gap-2", sidebarCollapsed && "justify-center")}>
+            {!sidebarCollapsed && (
               <Button
                 variant="outline"
-                size="icon"
-                className="shrink-0"
-                aria-label="新建对话"
-                onClick={() => {
-                  stop();
-                  setActiveId(null);
-                  setMessages([]);
-                }}
-              >
-                <MessageSquarePlus className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                className="flex-1 justify-start"
+                className="min-w-0 flex-1 justify-start"
                 onClick={() => {
                   stop();
                   setActiveId(null);
@@ -424,21 +410,21 @@ function SessionItem({
   return (
     <div
       className={cn(
-        "group flex items-center gap-1 rounded-lg px-2 py-2 text-sm cursor-pointer hover:bg-muted",
+        "group grid w-full min-w-0 grid-cols-[minmax(0,1fr)_2rem] items-center rounded-lg px-2 py-2 text-sm cursor-pointer hover:bg-muted",
         activeId === session.id && "bg-muted font-medium",
       )}
       onClick={onActivate}
     >
-      <span className="flex-1 min-w-0 truncate">{title}</span>
+      <span className="min-w-0 truncate pr-1">{title}</span>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 shrink-0 text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted transition-opacity duration-150"
+            className="flex h-8 w-8 items-center justify-center justify-self-end rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-background hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
             aria-label="会话操作"
             onClick={(e) => e.stopPropagation()}
           >
-            <MoreHorizontal className="h-3.5 w-3.5" />
+            <MoreHorizontal className="h-4 w-4" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side="right">
