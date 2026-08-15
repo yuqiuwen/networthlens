@@ -23,6 +23,7 @@ import {
   accountApi,
   type AccountListItem,
   type AccountDetail,
+  type AccountBalance,
   type CreateAccountPayload,
   type UpdateAccountPayload,
 } from "@/lib/api/account";
@@ -202,6 +203,11 @@ function AccountFormDialog({
   onOpenChange,
   editing,
   detail,
+  balance,
+  balanceVisible,
+  onRequestBalance,
+  onHideBalance,
+  balanceLoading,
   onSubmit,
   submitting,
 }: {
@@ -209,6 +215,11 @@ function AccountFormDialog({
   onOpenChange: (v: boolean) => void;
   editing: AccountListItem | null;
   detail: AccountDetail | null;
+  balance: AccountBalance | null;
+  balanceVisible: boolean;
+  onRequestBalance: () => void;
+  onHideBalance: () => void;
+  balanceLoading: boolean;
   onSubmit: (form: FormState) => void;
   submitting: boolean;
 }) {
@@ -222,7 +233,7 @@ function AccountFormDialog({
         account_type: editing.account_type,
         name: editing.name,
         currency: editing.currency,
-        balance: ((editing.balance ?? 0) / 100).toString(),
+        balance: "",
         status: editing.status,
         note: detail?.note ?? "",
         icon: detail?.icon ?? editing.icon ?? "",
@@ -231,6 +242,11 @@ function AccountFormDialog({
       setForm(EMPTY_FORM);
     }
   }, [open, editing, detail]);
+
+  useEffect(() => {
+    if (!balanceVisible || !balance || !editing) return;
+    setForm((current) => ({ ...current, balance: (balance.balance / 100).toString() }));
+  }, [balance, balanceVisible, editing]);
 
   const isEdit = !!editing;
 
@@ -299,14 +315,32 @@ function AccountFormDialog({
             </div>
             <div className="grid gap-2">
               <Label htmlFor="account-balance">{isEdit ? "余额" : "初始余额"}</Label>
-              <Input
-                id="account-balance"
-                type="number"
-                step="0.01"
-                inputMode="decimal"
-                value={form.balance}
-                onChange={(e) => setForm((f) => ({ ...f, balance: e.target.value }))}
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="account-balance"
+                  type={isEdit && !balanceVisible ? "text" : "number"}
+                  step="0.01"
+                  inputMode="decimal"
+                  value={isEdit && !balanceVisible ? "••••••" : form.balance}
+                  disabled={isEdit && !balanceVisible}
+                  onChange={(e) => setForm((f) => ({ ...f, balance: e.target.value }))}
+                  placeholder={isEdit && !balanceVisible ? "验证后显示余额" : undefined}
+                />
+                {isEdit && (
+                  <AmountVisibilityButton
+                    visible={balanceVisible}
+                    onClick={() => {
+                      if (balanceVisible) {
+                        setForm((current) => ({ ...current, balance: "" }));
+                        onHideBalance();
+                      } else {
+                        onRequestBalance();
+                      }
+                    }}
+                    disabled={balanceLoading}
+                  />
+                )}
+              </div>
             </div>
           </div>
 
@@ -341,12 +375,6 @@ function AccountFormDialog({
                     <div className="text-xs text-muted-foreground">信用额度</div>
                     <div className="mt-0.5 text-sm font-medium">
                       {formatAmount(detail.credit_limit ?? 0, editing.currency)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">可用额度</div>
-                    <div className="mt-0.5 text-sm font-medium">
-                      {formatAmount(detail.available_balance ?? 0, editing.currency)}
                     </div>
                   </div>
                 </div>
@@ -470,7 +498,15 @@ function AmountVisibilityDialog({
   );
 }
 
-function AmountVisibilityButton({ visible, onClick }: { visible: boolean; onClick: () => void }) {
+function AmountVisibilityButton({
+  visible,
+  onClick,
+  disabled = false,
+}: {
+  visible: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
   const Icon = visible ? EyeOff : Eye;
   return (
     <Button
@@ -481,6 +517,7 @@ function AmountVisibilityButton({ visible, onClick }: { visible: boolean; onClic
       aria-label={visible ? "隐藏金额" : "显示金额"}
       title={visible ? "隐藏金额" : "显示金额"}
       onClick={onClick}
+      disabled={disabled}
     >
       <Icon className="h-4 w-4" />
     </Button>
@@ -506,6 +543,8 @@ function AccountsPage() {
   const [amountsVisible, setAmountsVisible] = useState(false);
   const [visibleAccountIds, setVisibleAccountIds] = useState<Set<string>>(() => new Set());
   const [hiddenAccountIds, setHiddenAccountIds] = useState<Set<string>>(() => new Set());
+  const [balancesById, setBalancesById] = useState<Record<string, AccountBalance>>({});
+  const [formBalanceVisible, setFormBalanceVisible] = useState(false);
   const [visibilityTarget, setVisibilityTarget] = useState<VisibilityTarget | null>(null);
 
   const {
@@ -522,7 +561,14 @@ function AccountsPage() {
     queryFn: secretApi.status,
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["accounts"] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    setAmountsVisible(false);
+    setVisibleAccountIds(new Set());
+    setHiddenAccountIds(new Set());
+    setBalancesById({});
+    setFormBalanceVisible(false);
+  };
 
   const createMut = useMutation({
     mutationFn: (payload: CreateAccountPayload) => accountApi.create(payload),
@@ -556,10 +602,18 @@ function AccountsPage() {
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "删除失败"),
   });
 
-  const verifySecretMut = useMutation({
-    mutationFn: ({ code }: { code: string; target: VisibilityTarget }) =>
-      secretApi.verify({ code }),
-    onSuccess: (_, { target }) => {
+  const balanceMut = useMutation({
+    mutationFn: ({ target, code }: { target: VisibilityTarget; code: string }) =>
+      accountApi.balances({
+        code,
+        accountId: target.scope === "account" ? target.accountId : undefined,
+      }),
+    onSuccess: (balances, { target }) => {
+      setBalancesById((current) => {
+        const next = { ...current };
+        for (const balance of balances) next[balance.id] = balance;
+        return next;
+      });
       if (target.scope === "all") {
         setAmountsVisible(true);
         setVisibleAccountIds(new Set());
@@ -571,11 +625,27 @@ function AccountsPage() {
           next.delete(target.accountId);
           return next;
         });
+        if (formOpen && editing?.id === target.accountId) setFormBalanceVisible(true);
       }
       setVisibilityTarget(null);
       toast.success("金额已显示");
     },
-    onError: (err) => toast.error(err instanceof ApiError ? err.message : "查看密钥验证失败"),
+    onError: (err) => {
+      setVisibilityTarget(null);
+      toast.error(err instanceof ApiError ? err.message : "余额查询失败");
+    },
+  });
+
+  const verifySecretMut = useMutation({
+    mutationFn: ({ code }: { code: string; target: VisibilityTarget }) =>
+      secretApi.verify({ code }),
+    onSuccess: (encryptedCode, { target }) => {
+      balanceMut.mutate({ target, code: encryptedCode });
+    },
+    onError: (err) => {
+      setVisibilityTarget(null);
+      toast.error(err instanceof ApiError ? err.message : "查看密钥验证失败");
+    },
   });
 
   const requestAmountVisibility = (target: VisibilityTarget) => {
@@ -595,13 +665,16 @@ function AccountsPage() {
       setAmountsVisible(false);
       setVisibleAccountIds(new Set());
       setHiddenAccountIds(new Set());
+      setBalancesById({});
+      setFormBalanceVisible(false);
       return;
     }
     requestAmountVisibility({ scope: "all" });
   };
 
   const isAccountAmountVisible = (accountId: string) =>
-    amountsVisible ? !hiddenAccountIds.has(accountId) : visibleAccountIds.has(accountId);
+    Boolean(balancesById[accountId]) &&
+    (amountsVisible ? !hiddenAccountIds.has(accountId) : visibleAccountIds.has(accountId));
 
   const toggleAccountAmount = (accountId: string) => {
     if (!isAccountAmountVisible(accountId)) {
@@ -610,27 +683,39 @@ function AccountsPage() {
     }
     if (amountsVisible) {
       setHiddenAccountIds((current) => new Set(current).add(accountId));
+      setBalancesById((current) => {
+        const next = { ...current };
+        delete next[accountId];
+        return next;
+      });
     } else {
       setVisibleAccountIds((current) => {
         const next = new Set(current);
         next.delete(accountId);
         return next;
       });
+      setBalancesById((current) => {
+        const next = { ...current };
+        delete next[accountId];
+        return next;
+      });
     }
   };
 
   const handleSubmit = (form: FormState) => {
-    const balanceCents = Math.round(Number(form.balance || 0) * 100);
     if (editing) {
       const payload: UpdateAccountPayload = {
         name: form.name.trim(),
-        balance: balanceCents,
         status: form.status,
         note: form.note.trim() || null,
         icon: form.icon.trim() || null,
       };
+      if (form.balance.trim()) {
+        payload.balance = Math.round(Number(form.balance) * 100);
+      }
       updateMut.mutate({ id: editing.id, payload });
     } else {
+      const balanceCents = Math.round(Number(form.balance || 0) * 100);
       const payload: CreateAccountPayload = {
         account_type: form.account_type,
         name: form.name.trim(),
@@ -644,6 +729,7 @@ function AccountsPage() {
   };
 
   const handleEdit = async (acc: AccountListItem) => {
+    setFormBalanceVisible(false);
     setFetchingDetail(true);
     try {
       const d = await accountApi.get(acc.id);
@@ -658,11 +744,15 @@ function AccountsPage() {
   };
 
   // 汇总（仅按币种分组）
-  const totalsByCurrency = (accounts ?? []).reduce<Record<string, number>>((acc, a) => {
-    if (a.status !== 1) return acc;
-    acc[a.currency] = (acc[a.currency] ?? 0) + a.balance;
-    return acc;
-  }, {});
+  const totalsByCurrency = amountsVisible
+    ? (accounts ?? []).reduce<Record<string, number>>((acc, a) => {
+        if (a.status !== 1) return acc;
+        const balance = balancesById[a.id];
+        if (!balance) return acc;
+        acc[a.currency] = (acc[a.currency] ?? 0) + balance.balance;
+        return acc;
+      }, {})
+    : {};
 
   return (
     <div className="space-y-6">
@@ -678,6 +768,7 @@ function AccountsPage() {
           <Button
             onClick={() => {
               setEditing(null);
+              setFormBalanceVisible(false);
               setFormOpen(true);
             }}
           >
@@ -727,6 +818,7 @@ function AccountsPage() {
               variant="outline"
               onClick={() => {
                 setEditing(null);
+                setFormBalanceVisible(false);
                 setFormOpen(true);
               }}
             >
@@ -749,6 +841,7 @@ function AccountsPage() {
               color: "bg-muted text-muted-foreground",
             };
             const Icon = meta.icon;
+            const accountBalance = balancesById[acc.id];
             const accountAmountVisible = isAccountAmountVisible(acc.id);
             return (
               <Card key={acc.id} className="group relative overflow-hidden">
@@ -803,7 +896,7 @@ function AccountsPage() {
                         </div>
                         <div className="truncate font-display text-lg font-semibold tabular-nums">
                           {accountAmountVisible
-                            ? formatAmount(acc.balance, acc.currency)
+                            ? formatAmount(accountBalance?.balance ?? 0, acc.currency)
                             : `${acc.currency} ••••••`}
                         </div>
                       </div>
@@ -827,10 +920,18 @@ function AccountsPage() {
           if (!v) {
             setEditing(null);
             setDetail(null);
+            setFormBalanceVisible(false);
           }
         }}
         editing={editing}
         detail={detail}
+        balance={editing ? (balancesById[editing.id] ?? null) : null}
+        balanceVisible={formBalanceVisible}
+        onRequestBalance={() => {
+          if (editing) requestAmountVisibility({ scope: "account", accountId: editing.id });
+        }}
+        onHideBalance={() => setFormBalanceVisible(false)}
+        balanceLoading={verifySecretMut.isPending || balanceMut.isPending}
         onSubmit={handleSubmit}
         submitting={createMut.isPending || updateMut.isPending || fetchingDetail}
       />
@@ -868,7 +969,7 @@ function AccountsPage() {
         onSubmit={(code) => {
           if (visibilityTarget) verifySecretMut.mutate({ code, target: visibilityTarget });
         }}
-        submitting={verifySecretMut.isPending}
+        submitting={verifySecretMut.isPending || balanceMut.isPending}
       />
     </div>
   );

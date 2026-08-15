@@ -14,7 +14,8 @@ export const secretApi = {
   verify: async (payload: SecretCodePayload) => {
     const { encryptWithBiz } = await import("@/lib/crypto");
     const encryptedCode = await encryptWithBiz(payload.code, "user_pwd");
-    return request.post<boolean>("/v1/secret/verify", { code: encryptedCode });
+    await request.post<boolean>("/v1/secret/verify", { code: encryptedCode });
+    return encryptedCode;
   },
   remove: () => request.delete<boolean>("/v1/secret"),
 };
