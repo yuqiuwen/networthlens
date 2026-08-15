@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -13,9 +14,11 @@ import {
   Pencil,
   Trash2,
   Loader2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
-import {ApiError} from '@/lib/api'
+import { ApiError } from "@/lib/api";
 import {
   accountApi,
   type AccountListItem,
@@ -23,13 +26,16 @@ import {
   type CreateAccountPayload,
   type UpdateAccountPayload,
 } from "@/lib/api/account";
-import {AccountStatus, AccountType} from '@/lib/constant'
+import { secretApi } from "@/lib/api/secret";
+import { AccountStatus, AccountType } from "@/lib/constant";
 import { defineMap } from "@/utils/enum";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -72,12 +78,18 @@ export const Route = createFileRoute("/_authenticated/accounts")({
 // ---------------- 枚举 ----------------
 
 const ACCOUNT_TYPES = [
-  { value: 1, label: "储蓄卡", icon: Wallet, tone: "text-sky-500" },
-  { value: 2, label: "现金", icon: Banknote, tone: "text-emerald-500" },
-  { value: 3, label: "信用卡", icon: CreditCard, tone: "text-rose-500" },
-  { value: 4, label: "支付宝", icon: Smartphone, tone: "text-blue-500" },
-  { value: 5, label: "微信", icon: Smartphone, tone: "text-green-500" },
-  { value: 6, label: "其他", icon: PiggyBank, tone: "text-muted-foreground" },
+  { value: 1, label: "储蓄卡", icon: Wallet, tone: "text-sky-500", surface: "bg-sky-500/10" },
+  {
+    value: 2,
+    label: "现金",
+    icon: Banknote,
+    tone: "text-emerald-500",
+    surface: "bg-emerald-500/10",
+  },
+  { value: 3, label: "信用卡", icon: CreditCard, tone: "text-rose-500", surface: "bg-rose-500/10" },
+  { value: 4, label: "支付宝", icon: Smartphone, tone: "text-blue-500", surface: "bg-blue-500/10" },
+  { value: 5, label: "微信", icon: Smartphone, tone: "text-green-500", surface: "bg-green-500/10" },
+  { value: 6, label: "其他", icon: PiggyBank, tone: "text-muted-foreground", surface: "bg-muted" },
 ] as const;
 
 type AccountTypeDef = {
@@ -85,13 +97,18 @@ type AccountTypeDef = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   tone: string;
+  surface: string;
 };
 
-const ACCOUNT_TYPE_MAP = defineMap(
-  ACCOUNT_TYPES as unknown as AccountTypeDef[],
-  "value",
-  ["label", "icon", "tone"],
-) as Record<number, { label: string; icon: AccountTypeDef["icon"]; tone: string }>;
+const ACCOUNT_TYPE_MAP = defineMap(ACCOUNT_TYPES as unknown as AccountTypeDef[], "value", [
+  "label",
+  "icon",
+  "tone",
+  "surface",
+]) as Record<
+  number,
+  { label: string; icon: AccountTypeDef["icon"]; tone: string; surface: string }
+>;
 
 const ACCOUNT_STATUSES = [
   { value: 1, label: "正常", color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300" },
@@ -129,6 +146,8 @@ interface FormState {
   currency: string;
   balance: string; // 元，字符串方便输入
   status: AccountStatus;
+  note: string;
+  icon: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -137,7 +156,46 @@ const EMPTY_FORM: FormState = {
   currency: "CNY",
   balance: "0",
   status: 1,
+  note: "",
+  icon: "",
 };
+
+function isSvgMarkup(value: string) {
+  return /^(?:<\?xml[^>]*\?>\s*)?<svg\b[\s\S]*<\/svg>\s*$/i.test(value);
+}
+
+function AccountCardVisual({
+  svg,
+  Icon,
+  tone,
+  surface,
+}: {
+  svg?: string | null;
+  Icon: AccountTypeDef["icon"];
+  tone: string;
+  surface: string;
+}) {
+  const svgMarkup = svg?.trim();
+
+  if (svgMarkup) {
+    return (
+      <img
+        src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgMarkup)}`}
+        alt=""
+        className="h-full w-full object-cover object-top"
+      />
+    );
+  }
+
+  return (
+    <div className={cn("relative grid h-full w-full place-items-center overflow-hidden", surface)}>
+      <div className="absolute inset-x-0 top-0 h-2/5 bg-background/30" />
+      <div className="absolute -bottom-8 left-[16%] h-44 w-16 -skew-x-12 border-x border-foreground/10 bg-background/20" />
+      <div className="absolute -right-8 top-4 h-32 w-20 -skew-x-12 border-x border-foreground/10 bg-background/20" />
+      <Icon className={cn("relative h-14 w-14", tone)} />
+    </div>
+  );
+}
 
 function AccountFormDialog({
   open,
@@ -166,19 +224,19 @@ function AccountFormDialog({
         currency: editing.currency,
         balance: ((editing.balance ?? 0) / 100).toString(),
         status: editing.status,
+        note: detail?.note ?? "",
+        icon: detail?.icon ?? editing.icon ?? "",
       });
     } else {
       setForm(EMPTY_FORM);
     }
   }, [open, editing, detail]);
 
-
-
   const isEdit = !!editing;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? "编辑账户" : "新增账户"}</DialogTitle>
           <DialogDescription>
@@ -252,6 +310,29 @@ function AccountFormDialog({
             </div>
           </div>
 
+          <div className="grid gap-2">
+            <Label htmlFor="account-note">备注</Label>
+            <Textarea
+              id="account-note"
+              value={form.note}
+              onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))}
+              maxLength={100}
+              placeholder="选填，最多 100 个字符"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="account-icon">图标 SVG</Label>
+            <Textarea
+              id="account-icon"
+              value={form.icon}
+              onChange={(event) => setForm((current) => ({ ...current, icon: event.target.value }))}
+              className="min-h-32 font-mono text-xs leading-5"
+              placeholder={'<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">...</svg>'}
+              spellCheck={false}
+            />
+          </div>
+
           {isEdit && (
             <>
               {editing.account_type === 3 && detail && (
@@ -304,6 +385,10 @@ function AccountFormDialog({
                 toast.error("请输入账户名称");
                 return;
               }
+              if (form.icon.trim() && !isSvgMarkup(form.icon.trim())) {
+                toast.error("图标请填写完整的 SVG 代码");
+                return;
+              }
               onSubmit(form);
             }}
             disabled={submitting}
@@ -317,6 +402,98 @@ function AccountFormDialog({
   );
 }
 
+function AmountVisibilityDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+  submitting,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (code: string) => void;
+  submitting: boolean;
+}) {
+  const [code, setCode] = useState("");
+  const [submittedCode, setSubmittedCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setCode("");
+      setSubmittedCode(null);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (open && !submitting && code.length === 6 && code !== submittedCode) {
+      setSubmittedCode(code);
+      onSubmit(code);
+    }
+  }, [code, onSubmit, open, submittedCode, submitting]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    onOpenChange(nextOpen);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>显示账户金额</DialogTitle>
+          <DialogDescription></DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 py-2">
+          <div className="flex justify-center">
+            <InputOTP
+              maxLength={6}
+              value={code}
+              onChange={setCode}
+              pattern={REGEXP_ONLY_DIGITS}
+              type="password"
+              inputMode="numeric"
+              disabled={submitting}
+              autoFocus
+              aria-label="6 位数字查看密钥"
+            >
+              <InputOTPGroup>
+                {Array.from({ length: 6 }, (_, index) => (
+                  <InputOTPSlot key={index} index={index} />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
+          <div className="flex h-4 items-center justify-center" aria-live="polite">
+            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AmountVisibilityButton({ visible, onClick }: { visible: boolean; onClick: () => void }) {
+  const Icon = visible ? EyeOff : Eye;
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8 shrink-0"
+      aria-label={visible ? "隐藏金额" : "显示金额"}
+      title={visible ? "隐藏金额" : "显示金额"}
+      onClick={onClick}
+    >
+      <Icon className="h-4 w-4" />
+    </Button>
+  );
+}
+
+type VisibilityTarget =
+  | { scope: "all" }
+  | {
+      scope: "account";
+      accountId: string;
+    };
+
 // ---------------- 页面 ----------------
 
 function AccountsPage() {
@@ -326,10 +503,23 @@ function AccountsPage() {
   const [detail, setDetail] = useState<AccountDetail | null>(null);
   const [fetchingDetail, setFetchingDetail] = useState(false);
   const [deleting, setDeleting] = useState<AccountListItem | null>(null);
+  const [amountsVisible, setAmountsVisible] = useState(false);
+  const [visibleAccountIds, setVisibleAccountIds] = useState<Set<string>>(() => new Set());
+  const [hiddenAccountIds, setHiddenAccountIds] = useState<Set<string>>(() => new Set());
+  const [visibilityTarget, setVisibilityTarget] = useState<VisibilityTarget | null>(null);
 
-  const { data: accounts, isLoading, isError, error } = useQuery({
+  const {
+    data: accounts,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["accounts"],
     queryFn: () => accountApi.list(),
+  });
+  const secretStatusQuery = useQuery({
+    queryKey: ["secret-status"],
+    queryFn: secretApi.status,
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["accounts"] });
@@ -366,6 +556,69 @@ function AccountsPage() {
     onError: (err) => toast.error(err instanceof ApiError ? err.message : "删除失败"),
   });
 
+  const verifySecretMut = useMutation({
+    mutationFn: ({ code }: { code: string; target: VisibilityTarget }) =>
+      secretApi.verify({ code }),
+    onSuccess: (_, { target }) => {
+      if (target.scope === "all") {
+        setAmountsVisible(true);
+        setVisibleAccountIds(new Set());
+        setHiddenAccountIds(new Set());
+      } else {
+        setVisibleAccountIds((current) => new Set(current).add(target.accountId));
+        setHiddenAccountIds((current) => {
+          const next = new Set(current);
+          next.delete(target.accountId);
+          return next;
+        });
+      }
+      setVisibilityTarget(null);
+      toast.success("金额已显示");
+    },
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : "查看密钥验证失败"),
+  });
+
+  const requestAmountVisibility = (target: VisibilityTarget) => {
+    if (secretStatusQuery.isLoading) {
+      toast.info("正在检查查看密钥状态");
+      return;
+    }
+    if (!secretStatusQuery.data?.configured) {
+      toast.error("请先在个人中心设置 6 位数字查看密钥");
+      return;
+    }
+    setVisibilityTarget(target);
+  };
+
+  const toggleAmounts = () => {
+    if (amountsVisible) {
+      setAmountsVisible(false);
+      setVisibleAccountIds(new Set());
+      setHiddenAccountIds(new Set());
+      return;
+    }
+    requestAmountVisibility({ scope: "all" });
+  };
+
+  const isAccountAmountVisible = (accountId: string) =>
+    amountsVisible ? !hiddenAccountIds.has(accountId) : visibleAccountIds.has(accountId);
+
+  const toggleAccountAmount = (accountId: string) => {
+    if (!isAccountAmountVisible(accountId)) {
+      requestAmountVisibility({ scope: "account", accountId });
+      return;
+    }
+    if (amountsVisible) {
+      setHiddenAccountIds((current) => new Set(current).add(accountId));
+    } else {
+      setVisibleAccountIds((current) => {
+        const next = new Set(current);
+        next.delete(accountId);
+        return next;
+      });
+    }
+  };
+
   const handleSubmit = (form: FormState) => {
     const balanceCents = Math.round(Number(form.balance || 0) * 100);
     if (editing) {
@@ -373,6 +626,8 @@ function AccountsPage() {
         name: form.name.trim(),
         balance: balanceCents,
         status: form.status,
+        note: form.note.trim() || null,
+        icon: form.icon.trim() || null,
       };
       updateMut.mutate({ id: editing.id, payload });
     } else {
@@ -381,6 +636,8 @@ function AccountsPage() {
         name: form.name.trim(),
         currency: form.currency,
         balance: balanceCents,
+        note: form.note.trim() || null,
+        icon: form.icon.trim() || null,
       };
       createMut.mutate(payload);
     }
@@ -416,29 +673,34 @@ function AccountsPage() {
             管理你的银行卡、现金、信用卡等账户余额。
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          新增账户
-        </Button>
+        <div className="flex items-center gap-2">
+          <AmountVisibilityButton visible={amountsVisible} onClick={toggleAmounts} />
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            新增账户
+          </Button>
+        </div>
       </div>
 
       {/* 汇总卡片 */}
       {Object.keys(totalsByCurrency).length > 0 && (
         <Card>
-          <CardContent className="flex flex-wrap gap-6 p-5">
-            {Object.entries(totalsByCurrency).map(([cur, sum]) => (
-              <div key={cur} className="flex flex-col">
-                <span className="text-xs text-muted-foreground">{cur} 总余额</span>
-                <span className="mt-1 font-display text-2xl font-semibold">
-                  {formatAmount(sum, cur)}
-                </span>
-              </div>
-            ))}
+          <CardContent className="flex flex-wrap items-center justify-between gap-6 p-5">
+            <div className="flex flex-wrap gap-6">
+              {Object.entries(totalsByCurrency).map(([cur, sum]) => (
+                <div key={cur} className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">{cur} 总余额</span>
+                  <span className="mt-1 font-display text-2xl font-semibold tabular-nums">
+                    {amountsVisible ? formatAmount(sum, cur) : `${cur} ••••••`}
+                  </span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -480,49 +742,36 @@ function AccountsPage() {
               label: "未知",
               icon: Wallet,
               tone: "text-muted-foreground",
+              surface: "bg-muted",
             };
             const status = STATUS_MAP[acc.status] ?? {
               label: "未知",
               color: "bg-muted text-muted-foreground",
             };
             const Icon = meta.icon;
+            const accountAmountVisible = isAccountAmountVisible(acc.id);
             return (
               <Card key={acc.id} className="group relative overflow-hidden">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={cn(
-                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted",
-                          meta.tone,
-                        )}
-                      >
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="truncate text-sm font-semibold">{acc.name}</h3>
-                          <Badge variant="secondary" className={status.color}>
-                            {status.label}
-                          </Badge>
-                        </div>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {meta.label} · {acc.currency}
-                        </p>
-                      </div>
-                    </div>
-
+                <CardContent className="grid aspect-[4/3] min-h-64 grid-rows-[2fr_1fr] p-0">
+                  <div className="relative min-h-0 overflow-hidden bg-muted">
+                    <AccountCardVisual
+                      svg={acc.icon}
+                      Icon={Icon}
+                      tone={meta.tone}
+                      surface={meta.surface}
+                    />
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          className="pointer-events-none absolute right-3 top-3 h-8 w-8 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 bg-background/80 shadow-sm backdrop-blur-sm"
+                        >
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => handleEdit(acc)}
-                          disabled={fetchingDetail}
-                        >
+                        <DropdownMenuItem onClick={() => handleEdit(acc)} disabled={fetchingDetail}>
                           <Pencil className="mr-2 h-4 w-4" />
                           编辑
                         </DropdownMenuItem>
@@ -537,10 +786,31 @@ function AccountsPage() {
                     </DropdownMenu>
                   </div>
 
-                  <div className="mt-4">
-                    <div className="text-xs text-muted-foreground">当前余额</div>
-                    <div className="mt-1 font-display text-2xl font-semibold tabular-nums">
-                      {formatAmount(acc.balance, acc.currency)}
+                  <div className="flex min-h-0 flex-col justify-between gap-1 border-t p-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="truncate text-sm font-semibold">{acc.name}</h3>
+                        <Badge variant="secondary" className={cn("shrink-0", status.color)}>
+                          {status.label}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="flex items-end justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-xs text-muted-foreground">
+                          {meta.label} · {acc.currency}
+                        </div>
+                        <div className="truncate font-display text-lg font-semibold tabular-nums">
+                          {accountAmountVisible
+                            ? formatAmount(acc.balance, acc.currency)
+                            : `${acc.currency} ••••••`}
+                        </div>
+                      </div>
+                      <AmountVisibilityButton
+                        visible={accountAmountVisible}
+                        onClick={() => toggleAccountAmount(acc.id)}
+                      />
                     </div>
                   </div>
                 </CardContent>
@@ -589,6 +859,17 @@ function AccountsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AmountVisibilityDialog
+        open={visibilityTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setVisibilityTarget(null);
+        }}
+        onSubmit={(code) => {
+          if (visibilityTarget) verifySecretMut.mutate({ code, target: visibilityTarget });
+        }}
+        submitting={verifySecretMut.isPending}
+      />
     </div>
   );
 }

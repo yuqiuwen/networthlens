@@ -9,12 +9,15 @@ export interface AccountListItem {
     /** 单位：分 */
     balance: number;
     status: AccountStatus;
+    note?: string | null;
+    icon?: string | null;
   }
   
   export interface AccountDetail {
     available_balance: number;
     credit_limit?: number | null;
     note?: string | null;
+    icon?: string | null;
   }
   
   export interface CreateAccountPayload {
@@ -23,12 +26,16 @@ export interface AccountListItem {
     currency?: string;
     /** 单位：分 */
     balance?: number;
+    note?: string | null;
+    icon?: string | null;
   }
   
   export interface UpdateAccountPayload {
     name?: string;
     balance?: number;
     status?: AccountStatus;
+    note?: string | null;
+    icon?: string | null;
   }
 // ---------------- Account APIs ----------------
 

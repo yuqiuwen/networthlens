@@ -2,15 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import {
-  Plus,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  TrendingUp,
-  Loader2,
-  Wallet,
-} from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, TrendingUp, Loader2, Wallet } from "lucide-react";
 
 import { ApiError } from "@/lib/api";
 import {
@@ -79,6 +71,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { CategoryTreeSelect } from "@/components/category-tree-select";
+import { DatePicker } from "@/components/date-picker";
 
 export const Route = createFileRoute("/_authenticated/assets")({
   head: () => ({ meta: [{ title: "资产管理 · NetWorthLens" }] }),
@@ -308,9 +301,7 @@ function AssetFormDialog({
                 step="0.01"
                 inputMode="decimal"
                 value={form.purchase_amount}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, purchase_amount: e.target.value }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, purchase_amount: e.target.value }))}
               />
             </div>
             <div className="grid gap-2">
@@ -321,9 +312,7 @@ function AssetFormDialog({
                 step="0.01"
                 inputMode="decimal"
                 value={form.current_value}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, current_value: e.target.value }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, current_value: e.target.value }))}
               />
             </div>
           </div>
@@ -331,13 +320,11 @@ function AssetFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label htmlFor="purchase">购入日期</Label>
-              <Input
+              <DatePicker
                 id="purchase"
-                type="date"
                 value={form.purchase_date}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, purchase_date: e.target.value }))
-                }
+                onChange={(value) => setForm((f) => ({ ...f, purchase_date: value ?? "" }))}
+                placeholder="选择购入日期"
               />
             </div>
             <div className="grid gap-2">
@@ -370,9 +357,7 @@ function AssetFormDialog({
               <Label>状态</Label>
               <Select
                 value={String(form.status)}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, status: Number(v) as AssetStatus }))
-                }
+                onValueChange={(v) => setForm((f) => ({ ...f, status: Number(v) as AssetStatus }))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -472,8 +457,7 @@ function ValuationDialog({
   });
 
   const mut = useMutation({
-    mutationFn: (payload: CreateValuationPayload) =>
-      assetApi.addValuation(asset!.id, payload),
+    mutationFn: (payload: CreateValuationPayload) => assetApi.addValuation(asset!.id, payload),
     onSuccess: () => {
       toast.success("估值已更新");
       queryClient.invalidateQueries({ queryKey: ["asset", asset?.id, "valuations"] });
@@ -507,10 +491,11 @@ function ValuationDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label>估值日期</Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={(value) => setDate(value ?? "")}
+                placeholder="选择估值日期"
+                clearable={false}
               />
             </div>
             <div className="grid gap-2">
@@ -581,12 +566,8 @@ function ValuationDialog({
                     className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2"
                   >
                     <div>
-                      <div className="font-medium">
-                        {formatAmount(v.valuation, asset.currency)}
-                      </div>
-                      {v.note && (
-                        <div className="text-xs text-muted-foreground">{v.note}</div>
-                      )}
+                      <div className="font-medium">{formatAmount(v.valuation, asset.currency)}</div>
+                      {v.note && <div className="text-xs text-muted-foreground">{v.note}</div>}
                     </div>
                     <div className="text-right text-xs text-muted-foreground">
                       <div>{formatDate(v.valuation_date)}</div>
@@ -759,9 +740,7 @@ function AssetsPage() {
       {/* 类型筛选 */}
       <Tabs
         value={String(typeFilter)}
-        onValueChange={(v) =>
-          setTypeFilter(v === "all" ? "all" : (Number(v) as AssetType))
-        }
+        onValueChange={(v) => setTypeFilter(v === "all" ? "all" : (Number(v) as AssetType))}
       >
         <TabsList className="flex flex-wrap h-auto">
           <TabsTrigger value="all">全部</TabsTrigger>

@@ -472,7 +472,7 @@ function MessageBubble({ message }: { message: ViewMessage }) {
       >
         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
       </div>
-      <div className={cn("max-w-[80%] min-w-0", isUser && "flex flex-col items-end")}>
+      <div className={cn("max-w-[85%] min-w-0", isUser && "flex flex-col items-end")}>
         <div
           className={cn(
             "text-sm leading-relaxed break-words",

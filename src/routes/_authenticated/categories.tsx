@@ -28,11 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -92,6 +88,7 @@ interface FormState {
   category_type: CategoryType;
   parent_id: string;
   name: string;
+  code: string;
   icon: string;
   color: string;
   sort_no: string;
@@ -101,9 +98,10 @@ const emptyForm = (type: CategoryType): FormState => ({
   category_type: type,
   parent_id: "",
   name: "",
+  code: "",
   icon: "",
   color: "",
-  sort_no: "",
+  sort_no: "0",
 });
 
 function CategoryFormDialog({
@@ -134,9 +132,10 @@ function CategoryFormDialog({
         category_type: editing.category_type,
         parent_id: editing.parent_id ?? "",
         name: editing.name,
+        code: editing.code ?? "",
         icon: editing.icon ?? "",
         color: editing.color ?? "",
-        sort_no: String(editing.sort_no ?? ""),
+        sort_no: String(editing.sort_no ?? 0),
       });
     } else {
       setForm({
@@ -227,26 +226,37 @@ function CategoryFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
-              <Label htmlFor="cat-icon">图标</Label>
+              <Label htmlFor="cat-code">唯一标识码</Label>
               <Input
-                id="cat-icon"
-                placeholder="emoji，如 🍔"
-                value={form.icon}
-                onChange={(e) => setForm((f) => ({ ...f, icon: e.target.value }))}
+                id="cat-code"
+                placeholder="如：food"
+                maxLength={50}
+                value={form.code}
+                onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
               />
             </div>
-            {isEdit && (
-              <div className="grid gap-2">
-                <Label htmlFor="cat-sort">排序</Label>
-                <Input
-                  id="cat-sort"
-                  type="number"
-                  inputMode="numeric"
-                  value={form.sort_no}
-                  onChange={(e) => setForm((f) => ({ ...f, sort_no: e.target.value }))}
-                />
-              </div>
-            )}
+            <div className="grid gap-2">
+              <Label htmlFor="cat-sort">排序号</Label>
+              <Input
+                id="cat-sort"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step={1}
+                value={form.sort_no}
+                onChange={(e) => setForm((f) => ({ ...f, sort_no: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="cat-icon">图标</Label>
+            <Input
+              id="cat-icon"
+              placeholder="emoji，如 🍔"
+              value={form.icon}
+              onChange={(e) => setForm((f) => ({ ...f, icon: e.target.value }))}
+            />
           </div>
 
           <div className="grid gap-2">
@@ -370,23 +380,28 @@ function CategoriesPage() {
 
   const handleSubmit = (form: FormState) => {
     const name = form.name.trim();
+    const code = form.code.trim() || null;
+    const sort = Number(form.sort_no);
+    const sort_no = Number.isFinite(sort) ? sort : 0;
     if (editing) {
       const payload: UpdateCategoryPayload = {
         name,
         parent_id: form.parent_id || null,
+        code,
         icon: form.icon || null,
         color: form.color || null,
+        sort_no,
       };
-      const sort = Number(form.sort_no);
-      if (!Number.isNaN(sort) && form.sort_no !== "") payload.sort_no = sort;
       updateMut.mutate({ id: editing.id, payload });
     } else {
       const payload: CreateCategoryPayload = {
         category_type: form.category_type,
         name,
         parent_id: form.parent_id || null,
+        code,
         icon: form.icon || null,
         color: form.color || null,
+        sort_no,
       };
       createMut.mutate(payload);
     }
@@ -482,9 +497,7 @@ function CategoriesPage() {
         </div>
 
         {!isChild && open && children.length > 0 && (
-          <div className="space-y-0.5 pb-1">
-            {children.map((c) => renderItem(c, true))}
-          </div>
+          <div className="space-y-0.5 pb-1">{children.map((c) => renderItem(c, true))}</div>
         )}
       </div>
     );
@@ -505,7 +518,10 @@ function CategoriesPage() {
         </Button>
       </div>
 
-      <Tabs value={String(activeType)} onValueChange={(v) => setActiveType(Number(v) as CategoryType)}>
+      <Tabs
+        value={String(activeType)}
+        onValueChange={(v) => setActiveType(Number(v) as CategoryType)}
+      >
         <TabsList>
           {CategoryTypeOptions.map((t) => (
             <TabsTrigger key={t.value} value={String(t.value)}>

@@ -154,6 +154,8 @@ export const request = {
   get: <T = unknown>(path: string, options?: RequestOptions) => unwrap<T>("get", path, options),
   post: <T = unknown>(path: string, body?: unknown, options?: RequestOptions) =>
     unwrap<T>("post", path, { ...options, json: body }),
+  postForm: <T = unknown>(path: string, formData: FormData, options?: RequestOptions) =>
+    unwrap<T>("post", path, { ...options, body: formData }),
   put: <T = unknown>(path: string, body?: unknown, options?: RequestOptions) =>
     unwrap<T>("put", path, { ...options, json: body }),
   patch: <T = unknown>(path: string, body?: unknown, options?: RequestOptions) =>
@@ -231,5 +233,4 @@ export const authApi = {
   refresh: () => refreshToken(),
   logout: () => request.post<unknown>("/v1/auth/logout").catch(() => undefined),
 };
-
 

@@ -67,6 +67,56 @@ export const CategoryTypeMap = defineMap(CategoryTypeOptions, "value");
 
 // ------------------------------------------------------------
 
+// 流水类型
+export enum TransactionType {
+  INCOME = 1,
+  EXPENSE = 2,
+  TRANSFER = 3,
+  BORROW_IN = 4,
+  BORROW_OUT = 5,
+  REPAYMENT = 6,
+  ADJUST = 7,
+}
+
+export const TransactionTypeOptions = [
+  { label: "收入", value: TransactionType.INCOME },
+  { label: "支出", value: TransactionType.EXPENSE },
+  { label: "转账", value: TransactionType.TRANSFER },
+  { label: "借入", value: TransactionType.BORROW_IN },
+  { label: "借出", value: TransactionType.BORROW_OUT },
+  { label: "还款", value: TransactionType.REPAYMENT },
+  { label: "调整", value: TransactionType.ADJUST },
+];
+
+// 流水渠道
+export enum TransactionChannel {
+  OTHER = 0,
+  WX = 1,
+  ALIPAY = 2,
+  ZS_BANK = 3,
+  CASH = 4,
+}
+
+export const TransactionChannelOptions = [
+  { label: "微信", value: TransactionChannel.WX },
+  { label: "支付宝", value: TransactionChannel.ALIPAY },
+  { label: "网银", value: TransactionChannel.ZS_BANK },
+  { label: "现金", value: TransactionChannel.CASH },
+  { label: "其他", value: TransactionChannel.OTHER },
+];
+
+export const TransactionChannelMap = defineMap(TransactionChannelOptions, "value");
+
+export const TransactionTypeMap = defineMap(TransactionTypeOptions, "value");
+
+export enum TransactionStatus {
+  NORMAL = 1,
+  REVOKED = 2,
+  REFUNDED = 3,
+}
+
+// ------------------------------------------------------------
+
 // ==================== 资产类型 ====================
 export enum AssetType {
     REAL_ESTATE = 1,    // 房产
