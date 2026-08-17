@@ -584,8 +584,8 @@ function TransactionsPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [pageInput, setPageInput] = useState("1");
-  const [startDate, setStartDate] = useState(monthStart);
-  const [endDate, setEndDate] = useState(today);
+  const [startDate, setStartDate] = useState<string>(monthStart);
+  const [endDate, setEndDate] = useState<string>(today);
   const [type, setType] = useState<"all" | TransactionType>("all");
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -615,7 +615,7 @@ function TransactionsPage() {
       }),
   });
   const accountsQuery = useQuery({ queryKey: ["accounts"], queryFn: accountApi.list });
-  const categoriesQuery = useQuery({ queryKey: ["categories"], queryFn: categoryApi.list });
+  const categoriesQuery = useQuery({ queryKey: ["categories"], queryFn: () => categoryApi.list() });
   const transactions = useMemo(
     () => transactionsQuery.data?.items ?? [],
     [transactionsQuery.data?.items],
@@ -637,8 +637,8 @@ function TransactionsPage() {
       toast.error("开始日期不能晚于结束日期");
       return;
     }
-    setStartDate(nextStartDate);
-    setEndDate(nextEndDate);
+    setStartDate(nextStartDate ?? "");
+    setEndDate(nextEndDate ?? "");
     setPage(1);
   };
 
