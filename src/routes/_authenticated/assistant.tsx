@@ -114,20 +114,39 @@ function AssistantPage() {
     setMessages(list.map(toView));
   }, [activeId, historyQuery.data]);
 
+  // 用户手动向上滚动时暂停自动跟随
+  useEffect(() => {
+    const el = bottomRef.current;
+    const viewport = el?.closest<HTMLElement>("[data-radix-scroll-area-viewport]");
+    if (!viewport) return;
+    const onScroll = () => {
+      const distance = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+      stickToBottomRef.current = distance < 80;
+    };
+    viewport.addEventListener("scroll", onScroll, { passive: true });
+    return () => viewport.removeEventListener("scroll", onScroll);
+  }, [activeId]);
+
   useEffect(() => {
     if (messages.length === 0) return;
-    const scroll = () => {
+    const scroll = (force = false) => {
+      if (!force && !stickToBottomRef.current) return;
       const el = bottomRef.current;
       if (!el) return;
       const viewport = el.closest<HTMLElement>("[data-radix-scroll-area-viewport]");
       if (viewport) viewport.scrollTop = viewport.scrollHeight;
       else el.scrollIntoView({ behavior: "auto", block: "end" });
     };
+    const force = lastSessionRef.current !== activeId;
+    if (force) {
+      lastSessionRef.current = activeId;
+      stickToBottomRef.current = true;
+    }
     const r1 = requestAnimationFrame(() => {
-      scroll();
-      requestAnimationFrame(scroll);
+      scroll(force);
+      requestAnimationFrame(() => scroll(force));
     });
-    const t = setTimeout(scroll, 120);
+    const t = setTimeout(() => scroll(force), 120);
     return () => {
       cancelAnimationFrame(r1);
       clearTimeout(t);
