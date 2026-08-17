@@ -231,7 +231,7 @@ function ProfilePage() {
     return (
       <Card>
         <CardContent className="p-6 text-sm text-destructive">
-          加载个人信息失败：{(error as Error)?.message ?? "未知错误"}
+          加载个人信息失败
         </CardContent>
       </Card>
     );
