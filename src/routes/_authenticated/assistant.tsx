@@ -90,6 +90,9 @@ function AssistantPage() {
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const stickToBottomRef = useRef(true);
+  const lastSessionRef = useRef<string | null | undefined>(undefined);
+  const composingRef = useRef(false);
 
 
   const sessionsQuery = useQuery({
