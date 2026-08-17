@@ -365,9 +365,20 @@ function AssistantPage() {
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                onCompositionStart={() => {
+                  composingRef.current = true;
+                }}
+                onCompositionEnd={() => {
+                  composingRef.current = false;
+                }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
+                  const composing =
+                    composingRef.current ||
+                    e.nativeEvent.isComposing ||
+                    e.nativeEvent.keyCode === 229;
+                  if (e.key === "Enter" && !e.shiftKey && !composing) {
                     e.preventDefault();
+                    stickToBottomRef.current = true;
                     void send();
                   }
                 }}
