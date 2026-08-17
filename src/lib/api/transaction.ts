@@ -68,7 +68,7 @@ export interface ImportTransactionResult {
 export const transactionApi = {
   list: (query: TransactionQuery) =>
     request.get<PageResp<TransactionListItem>>("/v1/transaction", { params: query }),
-  summary: (query: Pick<TransactionQuery, "transaction_type" | "start_time" | "end_time"> = {}) =>
+  summary: (query: Partial<TransactionQuery> ={}) =>
     request.get<TransactionSummary>("/v1/transaction/summary", { params: query }),
   create: (payload: CreateTransactionPayload) => request.post<string>("/v1/transaction", payload),
   import: ({
