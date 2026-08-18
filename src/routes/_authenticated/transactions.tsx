@@ -586,8 +586,8 @@ function TransactionsPage() {
   const [pageInput, setPageInput] = useState("1");
   const [startDate, setStartDate] = useState<string>(monthStart);
   const [endDate, setEndDate] = useState<string>(today);
-  const [categoryId, setCategoryId] = useState();
-  const [TargetAccountId, setTargetAccountId] = useState();
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [targetAccountIds, setTargetAccountIds] = useState<string[]>([]);
   const [type, setType] = useState<"all" | TransactionType>("all");
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -596,13 +596,13 @@ function TransactionsPage() {
     () => ({
       page,
       limit: PAGE_SIZE,
-      category_id: categoryId,
-      target_account_id: TargetAccountId,
+      ...(categoryIds.length > 0 ? { category_id: categoryIds } : {}),
+      ...(targetAccountIds.length > 0 ? { target_account_id: targetAccountIds } : {}),
       ...(type === "all" ? {} : { transaction_type: type }),
       ...(startDate ? { start_time: `${startDate}T00:00:00` } : {}),
       ...(endDate ? { end_time: `${endDate}T23:59:59` } : {}),
     }),
-    [endDate, page, startDate, type],
+    [endDate, page, startDate, type, categoryIds, targetAccountIds],
   );
 
   const transactionsQuery = useQuery({
@@ -610,16 +610,24 @@ function TransactionsPage() {
     queryFn: () => transactionApi.list(query),
   });
   const summaryQuery = useQuery({
-    queryKey: ["transaction-summary", query.transaction_type, query.start_time, query.end_time],
+    queryKey: [
+      "transaction-summary",
+      query.transaction_type,
+      query.start_time,
+      query.end_time,
+      categoryIds,
+      targetAccountIds,
+    ],
     queryFn: () =>
       transactionApi.summary({
-        category_id: categoryId,
-        target_account_id: TargetAccountId,
+        ...(categoryIds.length > 0 ? { category_id: categoryIds } : {}),
+        ...(targetAccountIds.length > 0 ? { target_account_id: targetAccountIds } : {}),
         ...(query.transaction_type ? { transaction_type: query.transaction_type } : {}),
         ...(query.start_time ? { start_time: query.start_time } : {}),
         ...(query.end_time ? { end_time: query.end_time } : {}),
       }),
   });
+
   const accountsQuery = useQuery({ queryKey: ["accounts"], queryFn: accountApi.list });
   const categoriesQuery = useQuery({ queryKey: ["categories"], queryFn: () => categoryApi.list() });
   const transactions = useMemo(
