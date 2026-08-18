@@ -37,6 +37,9 @@ import {
   TransactionType,
 } from "@/lib/constant";
 import { CategoryTreeSelect } from "@/components/category-tree-select";
+import { CategoryTreeMultiSelect } from "@/components/category-tree-multi-select";
+import { MultiSelect } from "@/components/multi-select";
+
 import { DatePicker } from "@/components/date-picker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -586,8 +589,8 @@ function TransactionsPage() {
   const [pageInput, setPageInput] = useState("1");
   const [startDate, setStartDate] = useState<string>(monthStart);
   const [endDate, setEndDate] = useState<string>(today);
-  const [categoryId, setCategoryId] = useState();
-  const [TargetAccountId, setTargetAccountId] = useState();
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [targetAccountIds, setTargetAccountIds] = useState<string[]>([]);
   const [type, setType] = useState<"all" | TransactionType>("all");
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -596,13 +599,13 @@ function TransactionsPage() {
     () => ({
       page,
       limit: PAGE_SIZE,
-      category_id: categoryId,
-      target_account_id: TargetAccountId,
+      ...(categoryIds.length > 0 ? { category_id: categoryIds } : {}),
+      ...(targetAccountIds.length > 0 ? { target_account_id: targetAccountIds } : {}),
       ...(type === "all" ? {} : { transaction_type: type }),
       ...(startDate ? { start_time: `${startDate}T00:00:00` } : {}),
       ...(endDate ? { end_time: `${endDate}T23:59:59` } : {}),
     }),
-    [endDate, page, startDate, type],
+    [endDate, page, startDate, type, categoryIds, targetAccountIds],
   );
 
   const transactionsQuery = useQuery({
@@ -610,16 +613,24 @@ function TransactionsPage() {
     queryFn: () => transactionApi.list(query),
   });
   const summaryQuery = useQuery({
-    queryKey: ["transaction-summary", query.transaction_type, query.start_time, query.end_time],
+    queryKey: [
+      "transaction-summary",
+      query.transaction_type,
+      query.start_time,
+      query.end_time,
+      categoryIds,
+      targetAccountIds,
+    ],
     queryFn: () =>
       transactionApi.summary({
-        category_id: categoryId,
-        target_account_id: TargetAccountId,
+        ...(categoryIds.length > 0 ? { category_id: categoryIds } : {}),
+        ...(targetAccountIds.length > 0 ? { target_account_id: targetAccountIds } : {}),
         ...(query.transaction_type ? { transaction_type: query.transaction_type } : {}),
         ...(query.start_time ? { start_time: query.start_time } : {}),
         ...(query.end_time ? { end_time: query.end_time } : {}),
       }),
   });
+
   const accountsQuery = useQuery({ queryKey: ["accounts"], queryFn: accountApi.list });
   const categoriesQuery = useQuery({ queryKey: ["categories"], queryFn: () => categoryApi.list() });
   const transactions = useMemo(
@@ -800,7 +811,32 @@ function TransactionsPage() {
               </Button>
             ))}
           </div>
-          
+          <div className="flex flex-col gap-1.5 lg:w-56">
+            <Label className="text-xs text-muted-foreground">分类</Label>
+            <CategoryTreeMultiSelect
+              categories={categories}
+              value={categoryIds}
+              onChange={(next) => {
+                setCategoryIds(next);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 lg:w-56">
+            <Label className="text-xs text-muted-foreground">目标账户</Label>
+            <MultiSelect
+              options={accounts.map((item) => ({ value: item.id, label: item.name }))}
+              value={targetAccountIds}
+              onChange={(next) => {
+                setTargetAccountIds(next);
+                setPage(1);
+              }}
+              placeholder="全部账户"
+              searchPlaceholder="搜索账户"
+              emptyText="暂无账户"
+            />
+          </div>
+
           <Button
             type="button"
             variant="outline"
