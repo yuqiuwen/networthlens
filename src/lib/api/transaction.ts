@@ -37,12 +37,31 @@ export interface TransactionQuery {
   page?: number;
   limit?: number;
   transaction_type?: TransactionType;
-  category_id?: string;
-  source_account_id?: string;
-  target_account_id?: string;
+  /** 支持多选，多个 id 以逗号分隔提交 */
+  category_id?: string | string[];
+  source_account_id?: string | string[];
+  target_account_id?: string | string[];
   start_time?: string;
   end_time?: string;
 }
+
+/** 数组参数转为逗号分隔字符串，空值移除 */
+export function normalizeTransactionQuery<T extends Partial<TransactionQuery>>(
+  query: T,
+): Record<string, string | number> {
+  const params: Record<string, string | number> = {};
+  Object.entries(query).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") return;
+    if (Array.isArray(value)) {
+      if (value.length === 0) return;
+      params[key] = value.join(",");
+    } else {
+      params[key] = value as string | number;
+    }
+  });
+  return params;
+}
+
 
 export interface CreateTransactionPayload {
   channel: TransactionChannel;
