@@ -808,7 +808,32 @@ function TransactionsPage() {
               </Button>
             ))}
           </div>
-          
+          <div className="flex flex-col gap-1.5 lg:w-56">
+            <Label className="text-xs text-muted-foreground">分类</Label>
+            <CategoryTreeMultiSelect
+              categories={categories}
+              value={categoryIds}
+              onChange={(next) => {
+                setCategoryIds(next);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 lg:w-56">
+            <Label className="text-xs text-muted-foreground">目标账户</Label>
+            <MultiSelect
+              options={accounts.map((item) => ({ value: item.id, label: item.name }))}
+              value={targetAccountIds}
+              onChange={(next) => {
+                setTargetAccountIds(next);
+                setPage(1);
+              }}
+              placeholder="全部账户"
+              searchPlaceholder="搜索账户"
+              emptyText="暂无账户"
+            />
+          </div>
+
           <Button
             type="button"
             variant="outline"
