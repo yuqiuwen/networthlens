@@ -3,11 +3,22 @@ import { TransactionChannel, TransactionStatus, TransactionType } from "@/lib/co
 
 export type ImportSource = "wx" | "alipay";
 
+export interface TransactionCategory {
+  id: string;
+  category_type: number;
+  name: string;
+  code?: string | null;
+  icon?: string | null;
+  color?: string | null;
+  sort_no?: number;
+}
+
 export interface TransactionListItem {
   id: string;
   channel: TransactionChannel | null;
   transaction_type: TransactionType;
   category_id: string | null;
+  category?: TransactionCategory | null;
   source_account_id: string | null;
   target_account_id: string | null;
   /** Amount in the smallest currency unit, usually cents. */
