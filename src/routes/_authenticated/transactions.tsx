@@ -1039,7 +1039,27 @@ function TransactionRow({
           {item.status === TransactionStatus.REFUNDED ? "已退款" : typeLabel}
         </span>
       </TableCell>
-      <TableCell className="text-muted-foreground">{accountName}</TableCell>
+      <TableCell>
+        {category ? (
+          <span className="flex items-center gap-1.5" title={category.name}>
+            <span className="text-base leading-none">{category.icon || "🏷️"}</span>
+            <span
+              className="max-w-[120px] truncate text-sm"
+              style={category.color ? { color: category.color } : undefined}
+            >
+              {category.name}
+            </span>
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell>
+        <span className="flex items-center gap-2 text-muted-foreground" title={accountName}>
+          <AccountIcon svg={account?.icon} />
+          <span className="max-w-[140px] truncate">{accountName}</span>
+        </span>
+      </TableCell>
       <TableCell
         className="max-w-[240px] truncate text-muted-foreground"
         title={item.note ?? undefined}
