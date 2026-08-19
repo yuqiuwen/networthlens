@@ -892,6 +892,7 @@ function TransactionsPage() {
                       <TableHead>商户</TableHead>
                       <TableHead>商品</TableHead>
                       <TableHead>类型</TableHead>
+                      <TableHead>类别</TableHead>
                       <TableHead>账户</TableHead>
                       <TableHead>备注</TableHead>
                       <TableHead className="text-right">金额</TableHead>
@@ -899,7 +900,12 @@ function TransactionsPage() {
                   </TableHeader>
                   <TableBody>
                     {transactions.map((item) => (
-                      <TransactionRow key={item.id} item={item} accounts={accounts} />
+                      <TransactionRow
+                        key={item.id}
+                        item={item}
+                        accounts={accounts}
+                        categories={categories}
+                      />
                     ))}
                   </TableBody>
                 </Table>
