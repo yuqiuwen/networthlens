@@ -531,7 +531,10 @@ function ImportDialog({
                 <SelectItem value={NONE_VALUE}>不关联账户</SelectItem>
                 {accounts.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
-                    {account.name}
+                    <span className="flex items-center gap-2">
+                      <AccountIcon svg={account.icon} />
+                      <span className="truncate">{account.name}</span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
