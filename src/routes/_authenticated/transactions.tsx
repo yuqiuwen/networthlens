@@ -392,7 +392,10 @@ function TransactionFormDialog({
                   <SelectItem value={NONE_VALUE}>暂不关联</SelectItem>
                   {accounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
-                      {account.name}
+                      <span className="flex items-center gap-2">
+                        <AccountIcon svg={account.icon} />
+                        <span className="truncate">{account.name}</span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
