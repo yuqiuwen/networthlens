@@ -39,6 +39,7 @@ import {
 import { CategoryTreeSelect } from "@/components/category-tree-select";
 import { CategoryTreeMultiSelect } from "@/components/category-tree-multi-select";
 import { MultiSelect } from "@/components/multi-select";
+import { AccountIcon } from "@/components/account-icon";
 
 import { DatePicker } from "@/components/date-picker";
 import { Button } from "@/components/ui/button";
@@ -392,7 +393,10 @@ function TransactionFormDialog({
                   <SelectItem value={NONE_VALUE}>暂不关联</SelectItem>
                   {accounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
-                      {account.name}
+                      <span className="flex items-center gap-2">
+                        <AccountIcon svg={account.icon} />
+                        <span className="truncate">{account.name}</span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -527,7 +531,10 @@ function ImportDialog({
                 <SelectItem value={NONE_VALUE}>不关联账户</SelectItem>
                 {accounts.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
-                    {account.name}
+                    <span className="flex items-center gap-2">
+                      <AccountIcon svg={account.icon} />
+                      <span className="truncate">{account.name}</span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -885,6 +892,7 @@ function TransactionsPage() {
                       <TableHead>商户</TableHead>
                       <TableHead>商品</TableHead>
                       <TableHead>类型</TableHead>
+                      <TableHead>类别</TableHead>
                       <TableHead>账户</TableHead>
                       <TableHead>备注</TableHead>
                       <TableHead className="text-right">金额</TableHead>
@@ -892,7 +900,12 @@ function TransactionsPage() {
                   </TableHeader>
                   <TableBody>
                     {transactions.map((item) => (
-                      <TransactionRow key={item.id} item={item} accounts={accounts} />
+                      <TransactionRow
+                        key={item.id}
+                        item={item}
+                        accounts={accounts}
+                        categories={categories}
+                      />
                     ))}
                   </TableBody>
                 </Table>
@@ -988,13 +1001,18 @@ function TransactionsPage() {
 function TransactionRow({
   item,
   accounts,
+  categories,
 }: {
   item: TransactionListItem;
   accounts: AccountListItem[];
+  categories: CategoryItem[];
 }) {
   const income = item.transaction_type === TransactionType.INCOME;
   const accountId = income ? item.target_account_id : item.source_account_id;
-  const accountName = accounts.find((account) => account.id === accountId)?.name ?? "未关联账户";
+  const account = accounts.find((a) => a.id === accountId);
+  const accountName = account?.name ?? "未关联账户";
+  const category =
+    item.category ?? categories.find((c) => c.id === item.category_id) ?? null;
   const typeLabel = income
     ? "收入"
     : item.transaction_type === TransactionType.EXPENSE
@@ -1021,7 +1039,27 @@ function TransactionRow({
           {item.status === TransactionStatus.REFUNDED ? "已退款" : typeLabel}
         </span>
       </TableCell>
-      <TableCell className="text-muted-foreground">{accountName}</TableCell>
+      <TableCell>
+        {category ? (
+          <span className="flex items-center gap-1.5" title={category.name}>
+            <span className="text-base leading-none">{category.icon || "🏷️"}</span>
+            <span
+              className="max-w-[120px] truncate text-sm"
+              style={category.color ? { color: category.color } : undefined}
+            >
+              {category.name}
+            </span>
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell>
+        <span className="flex items-center gap-2 text-muted-foreground" title={accountName}>
+          <AccountIcon svg={account?.icon} />
+          <span className="max-w-[140px] truncate">{accountName}</span>
+        </span>
+      </TableCell>
       <TableCell
         className="max-w-[240px] truncate text-muted-foreground"
         title={item.note ?? undefined}
