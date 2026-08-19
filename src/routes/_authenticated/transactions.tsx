@@ -42,6 +42,7 @@ import { MultiSelect } from "@/components/multi-select";
 
 import { DatePicker } from "@/components/date-picker";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -789,8 +790,7 @@ function TransactionsPage() {
 
       <Card>
         <CardContent className="flex flex-col gap-4 p-4 lg:flex-row lg:items-end">
-          <DateRangeFilter startDate={startDate} endDate={endDate} onChange={updateDateRange} />
-          <div className="flex rounded-md border p-1" role="group" aria-label="流水类型筛选">
+        <ButtonGroup role="group" aria-label="流水类型筛选">
             {(
               [
                 ["all", "全部"],
@@ -800,8 +800,7 @@ function TransactionsPage() {
             ).map(([value, label]) => (
               <Button
                 key={String(value)}
-                size="sm"
-                variant={type === value ? "secondary" : "ghost"}
+                variant={type === value ? "default" : "outline"}
                 onClick={() => {
                   setType(value);
                   setPage(1);
@@ -810,9 +809,9 @@ function TransactionsPage() {
                 {label}
               </Button>
             ))}
-          </div>
+          </ButtonGroup>
+          <DateRangeFilter startDate={startDate} endDate={endDate} onChange={updateDateRange} />
           <div className="flex flex-col gap-1.5 lg:w-56">
-            <Label className="text-xs text-muted-foreground">分类</Label>
             <CategoryTreeMultiSelect
               categories={categories}
               value={categoryIds}
@@ -823,7 +822,6 @@ function TransactionsPage() {
             />
           </div>
           <div className="flex flex-col gap-1.5 lg:w-56">
-            <Label className="text-xs text-muted-foreground">目标账户</Label>
             <MultiSelect
               options={accounts.map((item) => ({ value: item.id, label: item.name }))}
               value={targetAccountIds}
