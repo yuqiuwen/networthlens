@@ -39,6 +39,7 @@ import {
 import { CategoryTreeSelect } from "@/components/category-tree-select";
 import { CategoryTreeMultiSelect } from "@/components/category-tree-multi-select";
 import { MultiSelect } from "@/components/multi-select";
+import { AccountIcon } from "@/components/account-icon";
 
 import { DatePicker } from "@/components/date-picker";
 import { Button } from "@/components/ui/button";
