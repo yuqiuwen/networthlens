@@ -1001,13 +1001,18 @@ function TransactionsPage() {
 function TransactionRow({
   item,
   accounts,
+  categories,
 }: {
   item: TransactionListItem;
   accounts: AccountListItem[];
+  categories: CategoryItem[];
 }) {
   const income = item.transaction_type === TransactionType.INCOME;
   const accountId = income ? item.target_account_id : item.source_account_id;
-  const accountName = accounts.find((account) => account.id === accountId)?.name ?? "未关联账户";
+  const account = accounts.find((a) => a.id === accountId);
+  const accountName = account?.name ?? "未关联账户";
+  const category =
+    item.category ?? categories.find((c) => c.id === item.category_id) ?? null;
   const typeLabel = income
     ? "收入"
     : item.transaction_type === TransactionType.EXPENSE
