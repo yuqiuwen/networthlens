@@ -17,7 +17,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { statsApi, type DashboardPeriod } from "@/lib/api/stats";
-import { AccountTypeMap } from "@/lib/constant";
+import { AccountTypeOptions } from "@/lib/constant";
 import {
   AreaChart,
   Area,
@@ -317,7 +317,7 @@ function DashboardPage() {
                   key={it.id}
                   color={CHART_COLORS[i % CHART_COLORS.length]}
                   title={it.name}
-                  subtitle={AccountTypeMap[it.type]?.label ?? "账户"}
+                  subtitle={AccountTypeOptions.find((o) => o.value === it.type)?.label ?? "账户"}
                   amount={num(it.balance)}
                   percentage={num(it.percentage)}
                 />
