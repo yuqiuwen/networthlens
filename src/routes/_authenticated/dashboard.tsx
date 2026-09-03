@@ -265,6 +265,7 @@ function DashboardPage() {
           icon={Landmark}
           label="可用资金"
           value={fmtMoney(m?.available_funds)}
+          hint={`非资金资产 ${fmtMoney(m?.asset_value)}`}
           loading={metricsQ.isLoading}
         />
         <KpiCard
@@ -292,6 +293,16 @@ function DashboardPage() {
           hint={m?.saving_rate != null ? `储蓄率 ${fmtPct(m.saving_rate)}` : undefined}
           loading={metricsQ.isLoading}
         />
+      </div>
+
+      {/* 上一周期对比 */}
+      {!metricsQ.isLoading && m && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <PrevStat label={`上周期收入`} value={m.previous_income} />
+          <PrevStat label={`上周期支出`} value={m.previous_expense} />
+          <PrevStat label={`上周期结余`} value={m.previous_balance} />
+          <PrevStat label="本期储蓄率" value={m.saving_rate} percent />
+        </div>
       </div>
 
       {/* 第二屏 */}
