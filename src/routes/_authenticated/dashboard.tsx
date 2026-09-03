@@ -265,6 +265,7 @@ function DashboardPage() {
           icon={Landmark}
           label="可用资金"
           value={fmtMoney(m?.available_funds)}
+          hint={`非资金资产 ${fmtMoney(m?.asset_value)}`}
           loading={metricsQ.isLoading}
         />
         <KpiCard
@@ -293,6 +294,16 @@ function DashboardPage() {
           loading={metricsQ.isLoading}
         />
       </div>
+
+      {/* 上一周期对比 */}
+      {!metricsQ.isLoading && m && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <PrevStat label={`上周期收入`} value={m.previous_income} />
+          <PrevStat label={`上周期支出`} value={m.previous_expense} />
+          <PrevStat label={`上周期结余`} value={m.previous_balance} />
+          <PrevStat label="本期储蓄率" value={m.saving_rate} percent />
+        </div>
+      )}
 
       {/* 第二屏 */}
       <div className="grid lg:grid-cols-5 gap-6">
@@ -373,9 +384,10 @@ function DashboardPage() {
                         {it.category_name}
                         <span className="text-xs text-muted-foreground">{it.transaction_count} 笔</span>
                       </span>
-                      <span className="tabular-nums text-muted-foreground">
+                      <span className="flex items-center gap-2 tabular-nums text-muted-foreground">
+                        <ChangeBadge value={it.change} rate={it.change_rate} invert />
                         {fmtMoney(it.amount)}
-                        <span className="ml-2 text-foreground">{fmtPct(it.percentage)}</span>
+                        <span className="text-foreground">{fmtPct(it.percentage)}</span>
                       </span>
                     </div>
                     <Progress value={Math.min(100, num(it.percentage) * 100)} />
@@ -593,6 +605,27 @@ function DistributionRow({
   );
 }
 
+function PrevStat({
+  label,
+  value,
+  percent,
+}: {
+  label: string;
+  value?: number | null;
+  percent?: boolean;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="mt-1 font-display text-lg font-semibold tabular-nums">
+          {value == null ? "—" : percent ? fmtPct(value) : fmtMoney(value)}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ChangeBadge({
   value,
   rate,
@@ -653,8 +686,15 @@ function KpiCard({
         ) : (
           <div className="mt-3 font-display text-2xl font-semibold tabular-nums">{value}</div>
         )}
-        <div className="mt-1 text-xs text-muted-foreground">
-          {hint ?? <ChangeBadge value={change} rate={rate} invert={invert} />}
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          {(change != null || rate != null) && (
+            <>
+              <ChangeBadge value={change} rate={rate} invert={invert} />
+              <span>较上一周期</span>
+            </>
+          )}
+          {hint && <span>{hint}</span>}
+          {change == null && rate == null && !hint && <span>—</span>}
         </div>
       </CardContent>
     </Card>
