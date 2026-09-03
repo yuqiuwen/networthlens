@@ -179,15 +179,74 @@ function DashboardPage() {
           </div>
         </div>
 
-        <Tabs value={period} onValueChange={(v) => setPeriod(v as DashboardPeriod)}>
-          <TabsList>
-            {PERIODS.map((p) => (
-              <TabsTrigger key={p.value} value={p.value}>
-                {p.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <div className="flex flex-wrap items-center gap-2">
+          <Tabs value={period} onValueChange={(v) => setPeriod(v as DashboardPeriod)}>
+            <TabsList>
+              {PERIODS.map((p) => (
+                <TabsTrigger key={p.value} value={p.value}>
+                  {p.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+
+          <Button
+            variant={custom ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCustom((c) => !c)}
+          >
+            <CalendarRange className="h-4 w-4" />
+            自定义
+          </Button>
+
+          {custom && (
+            <>
+              <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                <SelectTrigger className="w-[110px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y} 年
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {period === "quarter" && (
+                <Select value={String(quarter)} onValueChange={(v) => setQuarter(Number(v))}>
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4].map((qq) => (
+                      <SelectItem key={qq} value={String(qq)}>
+                        第 {qq} 季度
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {period === "month" && (
+                <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((mm) => (
+                      <SelectItem key={mm} value={String(mm)}>
+                        {mm} 月
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </>
+          )}
+        </div>
+
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
