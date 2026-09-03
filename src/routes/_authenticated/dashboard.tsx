@@ -95,22 +95,50 @@ const tooltipStyle = {
   fontSize: 12,
 } as const;
 
-function DashboardPage() {
-  const [period, setPeriod] = useState<DashboardPeriod>("month");
-  const q = { period };
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
 
-  const metricsQ = useQuery({ queryKey: ["stats", "metrics", period], queryFn: () => statsApi.metrics(q) });
-  const cashFlowQ = useQuery({ queryKey: ["stats", "cash-flow", period], queryFn: () => statsApi.cashFlow(q) });
+function DashboardPage() {
+  const now = new Date();
+  const [period, setPeriod] = useState<DashboardPeriod>("month");
+  const [custom, setCustom] = useState(false);
+  const [year, setYear] = useState(now.getFullYear());
+  const [quarter, setQuarter] = useState(Math.floor(now.getMonth() / 3) + 1);
+  const [month, setMonth] = useState(now.getMonth() + 1);
+
+  const years = Array.from({ length: 8 }, (_, i) => now.getFullYear() - i);
+
+  const queryDate = !custom
+    ? undefined
+    : period === "year"
+      ? `${year}-01-01`
+      : period === "quarter"
+        ? `${year}-${pad2((quarter - 1) * 3 + 1)}-01`
+        : `${year}-${pad2(month)}-01`;
+
+  const q = { period, ...(queryDate ? { query_date: queryDate } : {}) };
+  const key = [period, queryDate ?? "current"];
+
+  const metricsQ = useQuery({ queryKey: ["stats", "metrics", ...key], queryFn: () => statsApi.metrics(q) });
+  const cashFlowQ = useQuery({ queryKey: ["stats", "cash-flow", ...key], queryFn: () => statsApi.cashFlow(q) });
   const expenseQ = useQuery({
-    queryKey: ["stats", "expense-category", period],
+    queryKey: ["stats", "expense-category", ...key],
     queryFn: () => statsApi.expenseCategory(q),
   });
   const accountQ = useQuery({ queryKey: ["stats", "accounts"], queryFn: () => statsApi.accountStats() });
-  const assetQ = useQuery({ queryKey: ["stats", "assets", period], queryFn: () => statsApi.assetCategoryStats(q) });
-  const wealthQ = useQuery({ queryKey: ["stats", "wealth-trend", period], queryFn: () => statsApi.wealthTrend(q) });
+  const assetQ = useQuery({ queryKey: ["stats", "assets", ...key], queryFn: () => statsApi.assetCategoryStats(q) });
+  const wealthQ = useQuery({ queryKey: ["stats", "wealth-trend", ...key], queryFn: () => statsApi.wealthTrend(q) });
 
   const m = metricsQ.data;
-  const periodLabel = PERIODS.find((p) => p.value === period)?.label ?? "本月";
+  const periodLabel = custom
+    ? period === "year"
+      ? `${year}年`
+      : period === "quarter"
+        ? `${year}年Q${quarter}`
+        : `${year}年${month}月`
+    : (PERIODS.find((p) => p.value === period)?.label ?? "本月");
+
 
   const cashFlow = (cashFlowQ.data?.items ?? []).map((it) => ({
     ...it,
