@@ -303,7 +303,7 @@ function DashboardPage() {
           <PrevStat label={`上周期结余`} value={m.previous_balance} />
           <PrevStat label="本期储蓄率" value={m.saving_rate} percent />
         </div>
-      </div>
+      )}
 
       {/* 第二屏 */}
       <div className="grid lg:grid-cols-5 gap-6">
@@ -664,8 +664,15 @@ function KpiCard({
         ) : (
           <div className="mt-3 font-display text-2xl font-semibold tabular-nums">{value}</div>
         )}
-        <div className="mt-1 text-xs text-muted-foreground">
-          {hint ?? <ChangeBadge value={change} rate={rate} invert={invert} />}
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          {(change != null || rate != null) && (
+            <>
+              <ChangeBadge value={change} rate={rate} invert={invert} />
+              <span>较上一周期</span>
+            </>
+          )}
+          {hint && <span>{hint}</span>}
+          {change == null && rate == null && !hint && <span>—</span>}
         </div>
       </CardContent>
     </Card>
