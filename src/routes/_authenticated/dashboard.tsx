@@ -384,9 +384,10 @@ function DashboardPage() {
                         {it.category_name}
                         <span className="text-xs text-muted-foreground">{it.transaction_count} 笔</span>
                       </span>
-                      <span className="tabular-nums text-muted-foreground">
+                      <span className="flex items-center gap-2 tabular-nums text-muted-foreground">
+                        <ChangeBadge value={it.change} rate={it.change_rate} invert />
                         {fmtMoney(it.amount)}
-                        <span className="ml-2 text-foreground">{fmtPct(it.percentage)}</span>
+                        <span className="text-foreground">{fmtPct(it.percentage)}</span>
                       </span>
                     </div>
                     <Progress value={Math.min(100, num(it.percentage) * 100)} />
@@ -601,6 +602,27 @@ function DistributionRow({
       </div>
       <Progress value={Math.min(100, percentage * 100)} />
     </div>
+  );
+}
+
+function PrevStat({
+  label,
+  value,
+  percent,
+}: {
+  label: string;
+  value?: number | null;
+  percent?: boolean;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="mt-1 font-display text-lg font-semibold tabular-nums">
+          {value == null ? "—" : percent ? fmtPct(value) : fmtMoney(value)}
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
