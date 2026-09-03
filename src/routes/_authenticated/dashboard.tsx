@@ -10,6 +10,7 @@ import {
   Landmark,
   Sparkles,
   Boxes,
+  CalendarRange,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
