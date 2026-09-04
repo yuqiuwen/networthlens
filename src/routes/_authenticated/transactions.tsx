@@ -907,7 +907,7 @@ function TransactionsPage() {
                       <TableHead>商户</TableHead>
                       <TableHead>商品</TableHead>
                       <TableHead>类型</TableHead>
-                      <TableHead>类别</TableHead>
+                      <TableHead>分类</TableHead>
                       <TableHead>账户</TableHead>
                       <TableHead>备注</TableHead>
                       <TableHead className="text-right">金额</TableHead>
@@ -1026,6 +1026,8 @@ function TransactionsPage() {
     </div>
   );
 }
+console.log(TransactionTypeMap);
+
 
 function TransactionRow({
   item,
@@ -1059,7 +1061,7 @@ function TransactionRow({
       <TableCell>
         <span
           className={cn(
-            "inline-flex rounded-full px-2 py-0.5 text-xs",
+            "inline-flex rounded-full px-2 py-0.5 text-xs max-w-[180px] truncate",
             income ? "bg-emerald-500/10 text-emerald-700" : "bg-rose-500/10 text-rose-700",
           )}
         >
@@ -1094,9 +1096,9 @@ function TransactionRow({
         {item.note || "—"}
       </TableCell>
       <TableCell
-        className={cn("text-right font-medium", income ? "text-emerald-700" : "text-foreground")}
+        className={cn("min-w-[100px] text-right font-medium", income ? "text-emerald-700" : "text-foreground")}
       >
-        {income ? "+" : "-"}
+        {income ? "+" : ""}
         {formatAmount(item.amount, item.currency)}
       </TableCell>
       <TableCell className="text-right">

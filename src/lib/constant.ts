@@ -107,9 +107,9 @@ export const TransactionChannelOptions = [
   { label: "其他", value: TransactionChannel.OTHER },
 ];
 
-export const TransactionChannelMap = defineMap(TransactionChannelOptions, "value");
+export const TransactionChannelMap = defineMap(TransactionChannelOptions, "value", "label");
 
-export const TransactionTypeMap = defineMap(TransactionTypeOptions, "value");
+export const TransactionTypeMap = defineMap(TransactionTypeOptions, "value", "label");
 
 export enum TransactionStatus {
   NORMAL = 1,
