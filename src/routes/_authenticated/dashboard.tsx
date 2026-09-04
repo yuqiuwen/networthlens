@@ -72,16 +72,6 @@ function fmtMoney(v: unknown) {
   return "¥" + num(v).toLocaleString("zh-CN", { maximumFractionDigits: 2 });
 }
 
-/** 支出类金额后端为负数，展示时取绝对值 */
-function fmtMoneyAbs(v: unknown) {
-  return fmtMoney(Math.abs(num(v)));
-}
-
-/** 支出类 change 在带符号语义下取反，转为“金额口径”的增减（正=支出变多） */
-function negate(v?: number | null) {
-  return v == null ? v : -num(v);
-}
-
 function fmtCompact(v: number) {
   const abs = Math.abs(v);
   if (abs >= 1_0000_0000) return (v / 1_0000_0000).toFixed(1) + "亿";

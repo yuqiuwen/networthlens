@@ -792,7 +792,7 @@ function TransactionsPage() {
             <div>
               <p className="text-xs text-muted-foreground">支出</p>
               <p className="mt-1 font-display text-lg font-semibold">
-                {formatAmount(Math.abs(totals.expense))}
+                {formatAmount(totals.expense)}
               </p>
             </div>
           </CardContent>
