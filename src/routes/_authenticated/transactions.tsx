@@ -210,6 +210,7 @@ function DateRangeFilter({
             <Calendar
               mode="range"
               selected={selected}
+              defaultMonth={selected?.from ?? selected?.to}
               onSelect={onChange}
               numberOfMonths={2}
               captionLayout="dropdown"

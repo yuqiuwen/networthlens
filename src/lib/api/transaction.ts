@@ -88,6 +88,14 @@ export interface CreateTransactionPayload {
   note?: string | null;
 }
 
+export interface UpdateTransactionPayload {
+  transaction_type?: TransactionType;
+  category_id?: string | null;
+  source_account_id?: string | null;
+  target_account_id?: string | null;
+  note?: string | null;
+}
+
 export interface ImportTransactionResult {
   success_count: number;
   failed_count: number;
@@ -106,6 +114,8 @@ export const transactionApi = {
     }),
 
   create: (payload: CreateTransactionPayload) => request.post<string>("/v1/transaction", payload),
+  update: (id: string, payload: UpdateTransactionPayload) =>
+    request.put<boolean>(`/v1/transaction/${id}`, payload),
   import: ({
     source,
     file,

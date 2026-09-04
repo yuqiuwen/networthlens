@@ -72,6 +72,7 @@ export function DatePicker({
           <Calendar
             mode="single"
             selected={selected}
+            defaultMonth={selected}
             onSelect={(date) => onChange(date ? toDateKey(date) : undefined)}
             captionLayout="dropdown"
             autoFocus
