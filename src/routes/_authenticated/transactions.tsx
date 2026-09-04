@@ -12,6 +12,7 @@ import {
   FileSpreadsheet,
   Loader2,
   Plus,
+  Pencil,
   ReceiptText,
   RefreshCw,
   X,
@@ -27,6 +28,7 @@ import {
   type CreateTransactionPayload,
   type ImportSource,
   type TransactionListItem,
+  type UpdateTransactionPayload,
 } from "@/lib/api/transaction";
 import { categoryApi, type CategoryItem } from "@/lib/api/category";
 import {
@@ -35,6 +37,8 @@ import {
   TransactionChannelOptions,
   TransactionStatus,
   TransactionType,
+  TransactionTypeMap,
+  TransactionTypeOptions,
 } from "@/lib/constant";
 import { CategoryTreeSelect } from "@/components/category-tree-select";
 import { CategoryTreeMultiSelect } from "@/components/category-tree-multi-select";
@@ -603,6 +607,7 @@ function TransactionsPage() {
   const [type, setType] = useState<"all" | TransactionType>("all");
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [editing, setEditing] = useState<TransactionListItem | null>(null);
 
   const query = useMemo(
     () => ({
@@ -676,6 +681,17 @@ function TransactionsPage() {
       invalidate();
     },
     onError: (error) => toast.error(error instanceof ApiError ? error.message : "保存流水失败"),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateTransactionPayload }) =>
+      transactionApi.update(id, payload),
+    onSuccess: () => {
+      toast.success("流水已更新");
+      setEditing(null);
+      invalidate();
+    },
+    onError: (error) => toast.error(error instanceof ApiError ? error.message : "更新流水失败"),
   });
 
   const importMutation = useMutation({
@@ -895,6 +911,7 @@ function TransactionsPage() {
                       <TableHead>账户</TableHead>
                       <TableHead>备注</TableHead>
                       <TableHead className="text-right">金额</TableHead>
+                      <TableHead className="w-16 text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -904,6 +921,7 @@ function TransactionsPage() {
                         item={item}
                         accounts={accounts}
                         categories={categories}
+                        onEdit={() => setEditing(item)}
                       />
                     ))}
                   </TableBody>
@@ -986,6 +1004,18 @@ function TransactionsPage() {
         accounts={accounts}
         categories={categories}
       />
+      <EditTransactionDialog
+        item={editing}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+        accounts={accounts}
+        categories={categories}
+        submitting={updateMutation.isPending}
+        onSubmit={(payload) => {
+          if (editing) updateMutation.mutate({ id: editing.id, payload });
+        }}
+      />
       <ImportDialog
         open={importOpen}
         onOpenChange={setImportOpen}
@@ -1001,10 +1031,12 @@ function TransactionRow({
   item,
   accounts,
   categories,
+  onEdit,
 }: {
   item: TransactionListItem;
   accounts: AccountListItem[];
   categories: CategoryItem[];
+  onEdit: () => void;
 }) {
   const income = item.transaction_type === TransactionType.INCOME;
   const accountId = income ? item.target_account_id : item.source_account_id;
@@ -1012,11 +1044,7 @@ function TransactionRow({
   const accountName = account?.name ?? "未关联账户";
   const category =
     item.category ?? categories.find((c) => c.id === item.category_id) ?? null;
-  const typeLabel = income
-    ? "收入"
-    : item.transaction_type === TransactionType.EXPENSE
-      ? "支出"
-      : "其他";
+  const typeLabel = TransactionTypeMap[item.transaction_type] ?? "其他";
   return (
     <TableRow>
       <TableCell className="whitespace-nowrap text-muted-foreground">
@@ -1071,7 +1099,166 @@ function TransactionRow({
         {income ? "+" : "-"}
         {formatAmount(item.amount, item.currency)}
       </TableCell>
+      <TableCell className="text-right">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          aria-label="编辑流水"
+          title="编辑流水"
+          onClick={onEdit}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+      </TableCell>
     </TableRow>
+  );
+}
+
+function EditTransactionDialog({
+  item,
+  onOpenChange,
+  onSubmit,
+  submitting,
+  accounts,
+  categories,
+}: {
+  item: TransactionListItem | null;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (payload: UpdateTransactionPayload) => void;
+  submitting: boolean;
+  accounts: AccountListItem[];
+  categories: CategoryItem[];
+}) {
+  const [transactionType, setTransactionType] = useState<TransactionType>(TransactionType.EXPENSE);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [sourceAccountId, setSourceAccountId] = useState<string>("");
+  const [targetAccountId, setTargetAccountId] = useState<string>("");
+  const [note, setNote] = useState("");
+
+  useEffect(() => {
+    if (!item) return;
+    setTransactionType(item.transaction_type);
+    setCategoryId(item.category_id ?? null);
+    setSourceAccountId(item.source_account_id ?? "");
+    setTargetAccountId(item.target_account_id ?? "");
+    setNote(item.note ?? "");
+  }, [item]);
+
+  const usableCategories = categories.filter((category) =>
+    transactionType === TransactionType.INCOME
+      ? category.category_type === CategoryType.INCOME
+      : transactionType === TransactionType.EXPENSE
+        ? category.category_type === CategoryType.EXPENSE
+        : true,
+  );
+
+  const accountSelect = (
+    label: string,
+    value: string,
+    onValueChange: (value: string) => void,
+  ) => (
+    <div className="grid gap-2">
+      <Label>{label}</Label>
+      <Select
+        value={value || NONE_VALUE}
+        onValueChange={(next) => onValueChange(next === NONE_VALUE ? "" : next)}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="选择账户" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NONE_VALUE}>不关联</SelectItem>
+          {accounts.map((account) => (
+            <SelectItem key={account.id} value={account.id}>
+              <span className="flex items-center gap-2">
+                <AccountIcon svg={account.icon} />
+                <span className="truncate">{account.name}</span>
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
+  return (
+    <Dialog open={Boolean(item)} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>编辑流水</DialogTitle>
+          <DialogDescription>可修改类型、类别、关联账户与备注。</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label>类型</Label>
+              <Select
+                value={String(transactionType)}
+                onValueChange={(value) => {
+                  setTransactionType(Number(value) as TransactionType);
+                  setCategoryId(null);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TransactionTypeOptions.map((option) => (
+                    <SelectItem key={option.value} value={String(option.value)}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>类别</Label>
+              <CategoryTreeSelect
+                categories={usableCategories}
+                value={categoryId}
+                onChange={setCategoryId}
+              />
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {accountSelect("来源账户", sourceAccountId, setSourceAccountId)}
+            {accountSelect("目标账户", targetAccountId, setTargetAccountId)}
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="edit-transaction-note">备注</Label>
+            <Textarea
+              id="edit-transaction-note"
+              rows={3}
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="补充说明"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            取消
+          </Button>
+          <Button
+            onClick={() =>
+              onSubmit({
+                transaction_type: transactionType,
+                category_id: categoryId,
+                source_account_id: sourceAccountId || null,
+                target_account_id: targetAccountId || null,
+                note: note.trim() || null,
+              })
+            }
+            disabled={submitting}
+          >
+            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            保存
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
