@@ -76,6 +76,7 @@ export enum TransactionType {
   BORROW_OUT = 5,
   REPAYMENT = 6,
   ADJUST = 7,
+  REFUND = 8,
 }
 
 export const TransactionTypeOptions = [
@@ -86,6 +87,7 @@ export const TransactionTypeOptions = [
   { label: "借出", value: TransactionType.BORROW_OUT },
   { label: "还款", value: TransactionType.REPAYMENT },
   { label: "调整", value: TransactionType.ADJUST },
+  { label: "冲减消费", value: TransactionType.REFUND },
 ];
 
 // 流水渠道
