@@ -792,7 +792,7 @@ function TransactionsPage() {
             <div>
               <p className="text-xs text-muted-foreground">支出</p>
               <p className="mt-1 font-display text-lg font-semibold">
-                {formatAmount(totals.expense)}
+                {formatAmount(Math.abs(totals.expense))}
               </p>
             </div>
           </CardContent>
@@ -1096,10 +1096,10 @@ function TransactionRow({
         {item.note || "—"}
       </TableCell>
       <TableCell
-        className={cn("min-w-[100px] text-right font-medium", income ? "text-emerald-700" : "text-foreground")}
+        className={cn("min-w-[100px] text-right font-medium", Number(item.amount) >= 0 ? "text-emerald-700" : "text-foreground")}
       >
-        {income ? "+" : ""}
-        {formatAmount(item.amount, item.currency)}
+        {Number(item.amount) >= 0 ? "+" : "-"}
+        {formatAmount(Math.abs(Number(item.amount)), item.currency)}
       </TableCell>
       <TableCell className="text-right">
         <Button
@@ -1296,9 +1296,9 @@ function TransactionMobileCard({
           <p className="mt-0.5 truncate text-xs text-muted-foreground">备注：{item.note}</p>
         )}
       </div>
-      <p className={cn("shrink-0 text-sm font-semibold", income && "text-emerald-700")}>
-        {income ? "+" : "-"}
-        {formatAmount(item.amount, item.currency)}
+      <p className={cn("shrink-0 text-sm font-semibold", Number(item.amount) >= 0 && "text-emerald-700")}>
+        {Number(item.amount) >= 0 ? "+" : "-"}
+        {formatAmount(Math.abs(Number(item.amount)), item.currency)}
       </p>
     </div>
   );

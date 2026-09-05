@@ -643,7 +643,10 @@ function ChangeBadge({
   const v = num(value ?? rate);
   const up = v >= 0;
   const good = invert ? !up : up;
-  const Icon = up ? ArrowUpRight : ArrowDownRight;
+  // 支出类指标：金额变化为负代表花得更多，箭头按花费规模方向显示，避免歧义
+  const magnitudeUp = invert ? !up : up;
+  const Icon = magnitudeUp ? ArrowUpRight : ArrowDownRight;
+  const displayRate = rate != null && invert ? Math.abs(num(rate)) : rate;
   return (
     <span
       className={`inline-flex items-center gap-1 text-sm font-medium ${
@@ -652,7 +655,7 @@ function ChangeBadge({
     >
       <Icon className="h-4 w-4" />
       {value != null && <span className="tabular-nums">{fmtMoney(Math.abs(num(value)))}</span>}
-      {rate != null && <span className="tabular-nums">({fmtPct(rate)})</span>}
+      {displayRate != null && <span className="tabular-nums">({fmtPct(displayRate)})</span>}
     </span>
   );
 }
