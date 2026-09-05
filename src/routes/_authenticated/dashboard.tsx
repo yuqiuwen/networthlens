@@ -147,13 +147,14 @@ function DashboardPage() {
     ...it,
     label: fmtDate(it.bucket_date),
     income: num(it.income),
-    expense: num(it.expense),
+    // 支出为有符号负数，图表按花费规模（绝对值）展示
+    expense: Math.abs(num(it.expense)),
     balance: num(it.balance),
   }));
 
   const expenseItems = (expenseQ.data?.items ?? []).map((it) => ({
     ...it,
-    amount: num(it.amount),
+    amount: Math.abs(num(it.amount)),
   }));
 
   const wealth = (wealthQ.data?.items ?? []).map((it) => ({
@@ -279,7 +280,7 @@ function DashboardPage() {
         <KpiCard
           icon={CreditCard}
           label={`${periodLabel}支出`}
-          value={fmtMoney(m?.expense)}
+          value={fmtMoney(m?.expense == null ? undefined : Math.abs(num(m.expense)))}
           change={m?.expense_change}
           rate={m?.expense_change_rate}
           invert
@@ -299,7 +300,10 @@ function DashboardPage() {
       {!metricsQ.isLoading && m && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <PrevStat label={`上周期收入`} value={m.previous_income} />
-          <PrevStat label={`上周期支出`} value={m.previous_expense} />
+          <PrevStat
+            label={`上周期支出`}
+            value={m.previous_expense == null ? null : Math.abs(num(m.previous_expense))}
+          />
           <PrevStat label={`上周期结余`} value={m.previous_balance} />
           <PrevStat label="本期储蓄率" value={m.saving_rate} percent />
         </div>
@@ -349,7 +353,7 @@ function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="font-display">消费分类</CardTitle>
             <span className="text-xs text-muted-foreground tabular-nums">
-              合计 {fmtMoney(expenseQ.data?.total)}
+              合计 {fmtMoney(expenseQ.data?.total == null ? undefined : Math.abs(num(expenseQ.data.total)))}
             </span>
           </CardHeader>
           <CardContent>
