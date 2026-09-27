@@ -1026,8 +1026,6 @@ function TransactionsPage() {
     </div>
   );
 }
-console.log(TransactionTypeMap);
-
 
 function TransactionRow({
   item,
