@@ -13,7 +13,7 @@ export interface CreateTransCategoryWordPayload {
 
 export const categoryWordApi = {
   list: () => request.get<TransCategoryWordItem[]>("/v1/transaction/category_word"),
-  create: (payload: CreateTransCategoryWordPayload) =>
+  create: (payload: CreateTransCategoryWordPayload[]) =>
     request.post<unknown>("/v1/transaction/category_word", payload),
   remove: (ids: number[]) =>
     request.delete<unknown>("/v1/transaction/category_word", { json: ids }),

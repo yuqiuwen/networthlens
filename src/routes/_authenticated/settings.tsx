@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { categoryWordApi } from "@/lib/api/category-word";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -99,10 +100,14 @@ function CategoryWordPanel() {
   });
 
   const submit = () => {
-    const w = word.trim();
-    if (!w) return toast.error("请输入匹配词");
-    if (w.length > 20) return toast.error("匹配词最多 20 个字符");
-    createM.mutate({ word: w, priority: Number(priority) || 0 });
+    const words = Array.from(
+      new Set(word.split(/[,，]/).map((w) => w.trim()).filter(Boolean)),
+    );
+    if (!words.length) return toast.error("请输入匹配词");
+    const tooLong = words.find((w) => w.length > 20);
+    if (tooLong) return toast.error(`「${tooLong}」超过 20 个字符`);
+    const p = Number(priority) || 0;
+    createM.mutate(words.map((w) => ({ word: w, priority: p })));
   };
 
   const allChecked = rows.length > 0 && rows.every((r) => selected.includes(r.id));
@@ -199,15 +204,15 @@ function CategoryWordPanel() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>匹配词</Label>
-              <Input
+              <Textarea
                 value={word}
-                maxLength={20}
+                rows={4}
                 onChange={(e) => setWord(e.target.value)}
-                placeholder="最多 20 个字符"
+                placeholder="多个以逗号隔开，每个最多 20 个字符"
               />
             </div>
             <div className="space-y-2">
-              <Label>优先级</Label>
+              <Label>优先级（统一应用到本次所有匹配词）</Label>
               <Input
                 type="number"
                 value={priority}
