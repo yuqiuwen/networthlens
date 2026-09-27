@@ -5,6 +5,9 @@ import { Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { categoryWordApi } from "@/lib/api/category-word";
+import { categoryApi } from "@/lib/api/category";
+import { CategoryTreeSelect } from "@/components/category-tree-select";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -67,14 +70,15 @@ function CategoryWordPanel() {
   const [selected, setSelected] = useState<number[]>([]);
   const [open, setOpen] = useState(false);
   const [word, setWord] = useState("");
-  const [priority, setPriority] = useState("0");
+  const [categoryId, setCategoryId] = useState<string | null>(null);
 
   const q = useQuery({ queryKey: QK, queryFn: categoryWordApi.list });
+  const catQ = useQuery({ queryKey: ["categories", "all"], queryFn: () => categoryApi.list() });
 
   const rows = useMemo(() => {
     const k = keyword.trim().toLowerCase();
     const list = q.data ?? [];
-    return k ? list.filter((r) => r.word.toLowerCase().includes(k)) : list;
+    return k ? list.filter((r) => (r.words ?? []).some((w) => w.toLowerCase().includes(k))) : list;
   }, [q.data, keyword]);
 
   const createM = useMutation({
@@ -83,7 +87,7 @@ function CategoryWordPanel() {
       toast.success("匹配词已添加");
       setOpen(false);
       setWord("");
-      setPriority("0");
+      setCategoryId(null);
       qc.invalidateQueries({ queryKey: QK });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -103,11 +107,10 @@ function CategoryWordPanel() {
     const words = Array.from(
       new Set(word.split(/[,，]/).map((w) => w.trim()).filter(Boolean)),
     );
+    if (!categoryId) return toast.error("请选择分类");
     if (!words.length) return toast.error("请输入匹配词");
-    const tooLong = words.find((w) => w.length > 20);
-    if (tooLong) return toast.error(`「${tooLong}」超过 20 个字符`);
-    const p = Number(priority) || 0;
-    createM.mutate(words.map((w) => ({ word: w, priority: p })));
+    if (words.length > 100) return toast.error("单次最多 100 个匹配词");
+    createM.mutate({ category_id: categoryId, words });
   };
 
   const allChecked = rows.length > 0 && rows.every((r) => selected.includes(r.id));
@@ -152,8 +155,8 @@ function CategoryWordPanel() {
             <TableHead className="w-10">
               <Checkbox checked={allChecked} onCheckedChange={toggleAll} />
             </TableHead>
+            <TableHead className="w-48">分类</TableHead>
             <TableHead>匹配词</TableHead>
-            <TableHead className="w-32">优先级</TableHead>
             <TableHead className="w-20 text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
@@ -176,15 +179,28 @@ function CategoryWordPanel() {
                 <TableCell>
                   <Checkbox checked={selected.includes(r.id)} onCheckedChange={() => toggle(r.id)} />
                 </TableCell>
-                <TableCell className="font-medium">{r.word}</TableCell>
-                <TableCell>{r.priority}</TableCell>
+                <TableCell>
+                  <span className="inline-flex items-center gap-1.5 font-medium">
+                    {r.category?.icon && <span>{r.category.icon}</span>}
+                    <span style={r.category?.color ? { color: r.category.color } : undefined}>
+                      {r.category?.name ?? "-"}
+                    </span>
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {(r.words ?? []).map((w) => (
+                      <Badge key={w} variant="secondary">{w}</Badge>
+                    ))}
+                  </div>
+                </TableCell>
                 <TableCell className="text-right">
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-destructive"
                     onClick={() => {
-                      if (confirm(`确定删除「${r.word}」？`)) removeM.mutate([r.id]);
+                      if (confirm(`确定删除「${r.category?.name ?? ""}」的匹配词？`)) removeM.mutate([r.id]);
                     }}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -203,20 +219,21 @@ function CategoryWordPanel() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
+              <Label>分类</Label>
+              <CategoryTreeSelect
+                categories={catQ.data ?? []}
+                value={categoryId}
+                onChange={setCategoryId}
+                placeholder="选择分类"
+              />
+            </div>
+            <div className="space-y-2">
               <Label>匹配词</Label>
               <Textarea
                 value={word}
                 rows={4}
                 onChange={(e) => setWord(e.target.value)}
-                placeholder="多个以逗号隔开，每个最多 20 个字符"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>优先级（统一应用到本次所有匹配词）</Label>
-              <Input
-                type="number"
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
+                placeholder="多个以逗号隔开，最多 100 个"
               />
             </div>
           </div>
