@@ -1,10 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { categoryWordApi } from "@/lib/api/category-word";
+import {
+  categoryWordApi,
+  type CreateTransCategoryWordPayload,
+  type TransCategoryWordItem,
+} from "@/lib/api/category-word";
 import { categoryApi } from "@/lib/api/category";
 import { CategoryTreeSelect } from "@/components/category-tree-select";
 import { Badge } from "@/components/ui/badge";
@@ -69,6 +73,7 @@ function CategoryWordPanel() {
   const [keyword, setKeyword] = useState("");
   const [selected, setSelected] = useState<number[]>([]);
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [word, setWord] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
 
@@ -81,11 +86,29 @@ function CategoryWordPanel() {
     return k ? list.filter((r) => (r.words ?? []).some((w) => w.toLowerCase().includes(k))) : list;
   }, [q.data, keyword]);
 
-  const createM = useMutation({
-    mutationFn: categoryWordApi.create,
+  const openCreate = () => {
+    setEditingId(null);
+    setWord("");
+    setCategoryId(null);
+    setOpen(true);
+  };
+
+  const openEdit = (r: TransCategoryWordItem) => {
+    setEditingId(r.id);
+    setWord((r.words ?? []).join(","));
+    setCategoryId(r.category?.id ?? null);
+    setOpen(true);
+  };
+
+  const saveM = useMutation({
+    mutationFn: (payload: CreateTransCategoryWordPayload) =>
+      editingId != null
+        ? categoryWordApi.update(editingId, payload)
+        : categoryWordApi.create(payload),
     onSuccess: () => {
-      toast.success("匹配词已添加");
+      toast.success(editingId != null ? "匹配词已更新" : "匹配词已添加");
       setOpen(false);
+      setEditingId(null);
       setWord("");
       setCategoryId(null);
       qc.invalidateQueries({ queryKey: QK });
@@ -110,7 +133,7 @@ function CategoryWordPanel() {
     if (!categoryId) return toast.error("请选择分类");
     if (!words.length) return toast.error("请输入匹配词");
     if (words.length > 100) return toast.error("单次最多 100 个匹配词");
-    createM.mutate({ category_id: categoryId, words });
+    saveM.mutate({ category_id: categoryId, words });
   };
 
   const allChecked = rows.length > 0 && rows.every((r) => selected.includes(r.id));
@@ -142,7 +165,7 @@ function CategoryWordPanel() {
             <Trash2 className="h-4 w-4 mr-1" />
             批量删除{selected.length ? ` (${selected.length})` : ""}
           </Button>
-          <Button onClick={() => setOpen(true)}>
+          <Button onClick={openCreate}>
             <Plus className="h-4 w-4 mr-1" />
             新增匹配词
           </Button>
@@ -157,7 +180,7 @@ function CategoryWordPanel() {
             </TableHead>
             <TableHead className="w-48">分类</TableHead>
             <TableHead>匹配词</TableHead>
-            <TableHead className="w-20 text-right">操作</TableHead>
+            <TableHead className="w-24 text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -194,7 +217,16 @@ function CategoryWordPanel() {
                     ))}
                   </div>
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right whitespace-nowrap">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    aria-label="编辑"
+                    onClick={() => openEdit(r)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -215,7 +247,7 @@ function CategoryWordPanel() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>新增匹配词</DialogTitle>
+            <DialogTitle>{editingId != null ? "编辑匹配词" : "新增匹配词"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -241,7 +273,7 @@ function CategoryWordPanel() {
             <Button variant="outline" onClick={() => setOpen(false)}>
               取消
             </Button>
-            <Button onClick={submit} disabled={createM.isPending}>
+            <Button onClick={submit} disabled={saveM.isPending}>
               保存
             </Button>
           </DialogFooter>
