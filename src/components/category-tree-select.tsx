@@ -4,6 +4,7 @@ import * as React from "react";
 import { ChevronRight, ChevronDown, Check, X, Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { CategoryType, CategoryTypeOptions } from "@/lib/constant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,6 +17,7 @@ interface CategoryItem {
   id: string;
   parent_id: string | null;
   name: string;
+  category_type?: CategoryType;
 }
 
 interface TreeNode {
@@ -169,6 +171,11 @@ interface CategoryTreeSelectProps {
   placeholder?: string;
   allowClear?: boolean;
   disabled?: boolean;
+  /** 限定可选的分类类型；不传则根据 categories 中出现的类型自动生成 */
+  categoryTypes?: CategoryType[];
+  /** 未选中时默认展示的分类类型 */
+  defaultCategoryType?: CategoryType;
+  className?: string;
 }
 
 export function CategoryTreeSelect({
@@ -178,31 +185,66 @@ export function CategoryTreeSelect({
   placeholder = "选择分类",
   allowClear = true,
   disabled = false,
+  categoryTypes,
+  defaultCategoryType,
+  className,
 }: CategoryTreeSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [keyword, setKeyword] = React.useState("");
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
 
-  const tree = React.useMemo(() => buildTree(categories), [categories]);
-  const filtered = React.useMemo(() => filterTree(tree, keyword), [tree, keyword]);
-  const selectedName = React.useMemo(
-    () => (value ? findNodeName(tree, value) : undefined),
-    [value, tree]
+  // 可选类型：显式传入优先，否则按数据中存在的类型
+  const typeOptions = React.useMemo(() => {
+    const present = new Set(
+      categories.map((c) => c.category_type).filter((t): t is CategoryType => t != null),
+    );
+    const allowed = categoryTypes ? new Set(categoryTypes) : present;
+    return CategoryTypeOptions.filter((o) => allowed.has(o.value) && present.has(o.value));
+  }, [categories, categoryTypes]);
+
+  const selectedType = React.useMemo(
+    () => categories.find((c) => c.id === value)?.category_type,
+    [categories, value],
   );
 
-  // 打开时：展开到已选中节点；搜索时：自动展开命中路径
+  const [activeType, setActiveType] = React.useState<CategoryType | undefined>(undefined);
+
+  const resolvedType = React.useMemo(() => {
+    const valid = (t?: CategoryType) => t != null && typeOptions.some((o) => o.value === t);
+    if (valid(activeType)) return activeType;
+    if (valid(selectedType)) return selectedType;
+    if (valid(defaultCategoryType)) return defaultCategoryType;
+    return typeOptions[0]?.value;
+  }, [activeType, selectedType, defaultCategoryType, typeOptions]);
+
+  const fullTree = React.useMemo(() => buildTree(categories), [categories]);
+  const typedTree = React.useMemo(
+    () =>
+      buildTree(
+        resolvedType == null
+          ? categories
+          : categories.filter((c) => c.category_type == null || c.category_type === resolvedType),
+      ),
+    [categories, resolvedType],
+  );
+  const filtered = React.useMemo(() => filterTree(typedTree, keyword), [typedTree, keyword]);
+  const selectedName = React.useMemo(
+    () => (value ? findNodeName(fullTree, value) : undefined),
+    [value, fullTree],
+  );
+
+  // 打开时：重置搜索、类型跟随已选项，并展开到已选中节点
   React.useEffect(() => {
     if (!open) return;
     setKeyword("");
+    setActiveType(undefined);
     const next = new Set<string>();
-    if (value) findAncestors(tree, value)?.forEach((id) => next.add(id));
+    if (value) findAncestors(fullTree, value)?.forEach((id) => next.add(id));
     setExpanded(next);
-  }, [open, value, tree]);
+  }, [open, value, fullTree]);
 
   React.useEffect(() => {
-    if (keyword.trim()) {
-      setExpanded(collectIds(filtered));
-    }
+    if (keyword.trim()) setExpanded(collectIds(filtered));
   }, [keyword, filtered]);
 
   const toggle = React.useCallback((id: string) => {
@@ -215,13 +257,13 @@ export function CategoryTreeSelect({
   }, []);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild disabled={disabled}>
         <Button
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between font-normal"
+          className={cn("w-full justify-between font-normal", className)}
           disabled={disabled}
         >
           <span className={cn("truncate", !selectedName && "text-muted-foreground")}>
@@ -239,12 +281,34 @@ export function CategoryTreeSelect({
                 <X className="h-3.5 w-3.5 text-muted-foreground" />
               </span>
             )}
-            <ChevronRight className="h-4 w-4 shrink-0 opacity-50 rotate-90" />
+            <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[260px] p-0" align="start">
-        <div className="flex items-center gap-2 border-b px-3 py-2">
+      <PopoverContent
+        className="flex w-[var(--radix-popover-trigger-width)] min-w-[300px] flex-col p-0"
+        align="start"
+        onWheel={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 border-b px-2 py-2">
+          {typeOptions.length > 1 && (
+            <select
+              aria-label="分类类型"
+              value={resolvedType ?? ""}
+              onChange={(e) => {
+                setActiveType(Number(e.target.value) as CategoryType);
+                setKeyword("");
+              }}
+              className="h-7 shrink-0 rounded-md border border-input bg-background px-1.5 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              {typeOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          )}
           <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <Input
             autoFocus
@@ -254,12 +318,15 @@ export function CategoryTreeSelect({
             className="h-7 border-0 p-0 shadow-none focus-visible:ring-0"
           />
         </div>
-        <div className="max-h-[300px] overflow-y-auto p-1.5" role="tree">
+        <div
+          className="max-h-[300px] overflow-y-auto overscroll-contain p-1.5"
+          role="tree"
+        >
           {allowClear && !keyword.trim() && (
             <div
               className={cn(
                 "flex items-center gap-1 rounded-sm px-2 py-1.5 text-sm cursor-pointer select-none hover:bg-accent hover:text-accent-foreground",
-                !value && "bg-accent text-accent-foreground font-medium"
+                !value && "bg-accent text-accent-foreground font-medium",
               )}
               onClick={() => {
                 onChange(null);
