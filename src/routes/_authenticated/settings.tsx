@@ -10,6 +10,7 @@ import {
   type TransCategoryWordItem,
 } from "@/lib/api/category-word";
 import { categoryApi } from "@/lib/api/category";
+import { CategoryTypeOptions } from "@/lib/constant";
 import { CategoryTreeSelect } from "@/components/category-tree-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -208,6 +209,11 @@ function CategoryWordPanel() {
                     <span style={r.category?.color ? { color: r.category.color } : undefined}>
                       {r.category?.name ?? "-"}
                     </span>
+                    {r.category?.category_type != null && (
+                      <Badge variant="outline" className="h-5 px-1.5 text-[11px] font-normal text-muted-foreground">
+                        {CategoryTypeOptions.find((o) => o.value === r.category!.category_type)?.label ?? "-"}
+                      </Badge>
+                    )}
                   </span>
                 </TableCell>
                 <TableCell>
