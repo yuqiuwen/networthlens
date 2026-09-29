@@ -48,6 +48,7 @@ export interface TransactionQuery {
   page?: number;
   limit?: number;
   transaction_type?: TransactionType;
+  keywords?: string;
   /** 支持多选，多个 id 以逗号分隔提交 */
   category_id?: string | string[];
   source_account_id?: string | string[];
@@ -93,6 +94,7 @@ export interface UpdateTransactionPayload {
   category_id?: string | null;
   source_account_id?: string | null;
   target_account_id?: string | null;
+  product?: string | null;
   note?: string | null;
 }
 

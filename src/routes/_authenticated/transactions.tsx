@@ -265,6 +265,7 @@ type TransactionForm = {
   transactionType: TransactionType;
   amount: string;
   merchant: string;
+  product: string;
   occurredAt: string;
   categoryId: string | null;
   accountId: string;
@@ -276,6 +277,7 @@ const EMPTY_TRANSACTION_FORM: TransactionForm = {
   transactionType: TransactionType.EXPENSE,
   amount: "",
   merchant: "",
+  product: "",
   occurredAt: nowForInput(),
   categoryId: null,
   accountId: "",
@@ -382,6 +384,16 @@ function TransactionFormDialog({
               placeholder={isIncome ? "如：工资、报销" : "如：超市、餐厅"}
               value={form.merchant}
               onChange={(event) => update("merchant", event.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="transaction-product">商品</Label>
+            <Input
+              id="transaction-product"
+              placeholder="如：咖啡、衣服"
+              value={form.product}
+              onChange={(event) => update("product", event.target.value)}
             />
           </div>
 
@@ -604,6 +616,15 @@ function TransactionsPage() {
   const [endDate, setEndDate] = useState<string>(today);
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [targetAccountIds, setTargetAccountIds] = useState<string[]>([]);
+  const [keywordsInput, setKeywordsInput] = useState("");
+  const [keywords, setKeywords] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setKeywords(keywordsInput.trim());
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [keywordsInput]);
   const [type, setType] = useState<"all" | TransactionType>("all");
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -613,13 +634,14 @@ function TransactionsPage() {
     () => ({
       page,
       limit: PAGE_SIZE,
+      ...(keywords ? { keywords } : {}),
       ...(categoryIds.length > 0 ? { category_id: categoryIds } : {}),
       ...(targetAccountIds.length > 0 ? { target_account_id: targetAccountIds } : {}),
       ...(type === "all" ? {} : { transaction_type: type }),
       ...(startDate ? { start_time: `${startDate}T00:00:00` } : {}),
       ...(endDate ? { end_time: `${endDate}T23:59:59` } : {}),
     }),
-    [endDate, page, startDate, type, categoryIds, targetAccountIds],
+    [endDate, page, startDate, type, categoryIds, targetAccountIds, keywords],
   );
 
   const transactionsQuery = useQuery({
@@ -634,9 +656,11 @@ function TransactionsPage() {
       query.end_time,
       categoryIds,
       targetAccountIds,
+      keywords,
     ],
     queryFn: () =>
       transactionApi.summary({
+        ...(keywords ? { keywords } : {}),
         ...(categoryIds.length > 0 ? { category_id: categoryIds } : {}),
         ...(targetAccountIds.length > 0 ? { target_account_id: targetAccountIds } : {}),
         ...(query.transaction_type ? { transaction_type: query.transaction_type } : {}),
@@ -726,6 +750,7 @@ function TransactionsPage() {
       transaction_type: form.transactionType,
       amount,
       merchant: form.merchant.trim() || null,
+      product: form.product.trim() || null,
       category_id: form.categoryId,
       source_account_id:
         form.transactionType === TransactionType.EXPENSE ? form.accountId || null : null,
@@ -835,6 +860,12 @@ function TransactionsPage() {
             ))}
           </ButtonGroup>
           <DateRangeFilter startDate={startDate} endDate={endDate} onChange={updateDateRange} />
+          <Input
+            className="lg:w-56"
+            placeholder="搜索商户/商品/备注"
+            value={keywordsInput}
+            onChange={(event) => setKeywordsInput(event.target.value)}
+          />
           <div className="flex flex-col gap-1.5 lg:w-56">
             <CategoryTreeMultiSelect
               categories={categories}
@@ -1136,6 +1167,7 @@ function EditTransactionDialog({
   const [sourceAccountId, setSourceAccountId] = useState<string>("");
   const [targetAccountId, setTargetAccountId] = useState<string>("");
   const [note, setNote] = useState("");
+  const [product, setProduct] = useState("");
 
   useEffect(() => {
     if (!item) return;
@@ -1144,6 +1176,7 @@ function EditTransactionDialog({
     setSourceAccountId(item.source_account_id ?? "");
     setTargetAccountId(item.target_account_id ?? "");
     setNote(item.note ?? "");
+    setProduct(item.product ?? "");
   }, [item]);
 
   const usableCategories = categories.filter((category) =>
@@ -1227,6 +1260,15 @@ function EditTransactionDialog({
             {accountSelect("目标账户", targetAccountId, setTargetAccountId)}
           </div>
           <div className="grid gap-2">
+            <Label htmlFor="edit-transaction-product">商品</Label>
+            <Input
+              id="edit-transaction-product"
+              value={product}
+              onChange={(event) => setProduct(event.target.value)}
+              placeholder="如：咖啡、衣服"
+            />
+          </div>
+          <div className="grid gap-2">
             <Label htmlFor="edit-transaction-note">备注</Label>
             <Textarea
               id="edit-transaction-note"
@@ -1248,6 +1290,7 @@ function EditTransactionDialog({
                 category_id: categoryId,
                 source_account_id: sourceAccountId || null,
                 target_account_id: targetAccountId || null,
+                product: product.trim() || null,
                 note: note.trim() || null,
               })
             }
