@@ -93,7 +93,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
-  errorComponent: ErrorComponent,
+  // 新版路由把 errorComponent 的类型收窄为 lazy 组件，这里只做类型断言，运行时行为不变
+  errorComponent: ErrorComponent as unknown as React.LazyExoticComponent<
+    (props: { error: Error; reset: () => void }) => React.JSX.Element
+  >,
 });
 
 function RootShell({ children }: { children: React.ReactNode }) {
