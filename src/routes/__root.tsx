@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
@@ -34,9 +35,10 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
   console.error(error);
   const router = useRouter();
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
@@ -44,7 +46,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           页面加载失败
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {error.message || "发生了意外错误"}
+          {message || "发生了意外错误"}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -93,7 +95,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
-  errorComponent: ErrorComponent,
+  // 新版路由把 errorComponent 的类型收窄为 lazy 组件，这里只做类型断言，运行时行为不变
+  errorComponent: ErrorComponent as unknown as React.LazyExoticComponent<
+    (props: ErrorComponentProps) => React.JSX.Element
+  >,
 });
 
 function RootShell({ children }: { children: React.ReactNode }) {

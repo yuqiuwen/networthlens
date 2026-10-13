@@ -4,6 +4,7 @@ import * as React from "react";
 import { Check, ChevronDown, ChevronRight, Search, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { CategoryType, CategoryTypeOptions } from "@/lib/constant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -12,6 +13,7 @@ interface CategoryItem {
   id: string;
   parent_id: string | null;
   name: string;
+  category_type?: CategoryType;
 }
 
 interface TreeNode {
@@ -86,6 +88,9 @@ function TreeNodeItem({
   return (
     <div>
       <div
+        role="treeitem"
+        aria-selected={checked}
+        aria-expanded={hasChildren ? isOpen : undefined}
         className={cn(
           "flex cursor-pointer select-none items-center gap-1 rounded-sm py-1.5 pr-2 text-sm hover:bg-accent hover:text-accent-foreground",
           checked && "font-medium",
@@ -148,6 +153,10 @@ interface CategoryTreeMultiSelectProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  /** 限定可选的分类类型；不传则根据 categories 中出现的类型自动生成 */
+  categoryTypes?: CategoryType[];
+  /** 未选中任何分类时默认展示的分类类型 */
+  defaultCategoryType?: CategoryType;
 }
 
 export function CategoryTreeMultiSelect({
@@ -157,13 +166,48 @@ export function CategoryTreeMultiSelect({
   placeholder = "全部分类",
   className,
   disabled = false,
+  categoryTypes,
+  defaultCategoryType,
 }: CategoryTreeMultiSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [keyword, setKeyword] = React.useState("");
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
+  const [activeType, setActiveType] = React.useState<CategoryType | undefined>(undefined);
+
+  // 可选类型：显式传入优先，否则按数据中存在的类型
+  const typeOptions = React.useMemo(() => {
+    const present = new Set(
+      categories.map((c) => c.category_type).filter((t): t is CategoryType => t != null),
+    );
+    const allowed = categoryTypes ? new Set(categoryTypes) : present;
+    return CategoryTypeOptions.filter((o) => allowed.has(o.value) && present.has(o.value));
+  }, [categories, categoryTypes]);
+
+  // 已选项中第一个分类所属的类型
+  const selectedType = React.useMemo(() => {
+    const first = value.map((id) => categories.find((c) => c.id === id)).find(Boolean);
+    return first?.category_type;
+  }, [categories, value]);
+
+  const resolvedType = React.useMemo(() => {
+    const valid = (t?: CategoryType) => t != null && typeOptions.some((o) => o.value === t);
+    if (valid(activeType)) return activeType;
+    if (valid(selectedType)) return selectedType;
+    if (valid(defaultCategoryType)) return defaultCategoryType;
+    return typeOptions[0]?.value;
+  }, [activeType, selectedType, defaultCategoryType, typeOptions]);
 
   const tree = React.useMemo(() => buildTree(categories), [categories]);
-  const filtered = React.useMemo(() => filterTree(tree, keyword), [tree, keyword]);
+  const typedTree = React.useMemo(
+    () =>
+      buildTree(
+        resolvedType == null
+          ? categories
+          : categories.filter((c) => c.category_type == null || c.category_type === resolvedType),
+      ),
+    [categories, resolvedType],
+  );
+  const filtered = React.useMemo(() => filterTree(typedTree, keyword), [typedTree, keyword]);
 
   const label = React.useMemo(() => {
     if (value.length === 0) return undefined;
@@ -173,9 +217,11 @@ export function CategoryTreeMultiSelect({
     return value.length > 1 ? `${first} 等 ${value.length} 项` : first;
   }, [value, categories]);
 
+  // 打开时：重置搜索、类型跟随已选项，并展开到已选中节点
   React.useEffect(() => {
     if (!open) return;
     setKeyword("");
+    setActiveType(undefined);
     const next = new Set<string>();
     value.forEach((id) => findAncestors(tree, id)?.forEach((p) => next.add(p)));
     setExpanded(next);
@@ -199,7 +245,7 @@ export function CategoryTreeMultiSelect({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild disabled={disabled}>
         <Button
           variant="outline"
@@ -228,10 +274,29 @@ export function CategoryTreeMultiSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[var(--radix-popover-trigger-width)] min-w-[240px] p-0"
+        className="flex w-[var(--radix-popover-trigger-width)] min-w-[260px] flex-col p-0"
         align="start"
+        onWheel={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 border-b px-3 py-2">
+        <div className="flex items-center gap-2 border-b px-2 py-2">
+          {typeOptions.length > 1 && (
+            <select
+              aria-label="分类类型"
+              value={resolvedType ?? ""}
+              onChange={(e) => {
+                setActiveType(Number(e.target.value) as CategoryType);
+                setKeyword("");
+              }}
+              className="h-7 shrink-0 rounded-md border border-input bg-background px-1.5 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              {typeOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          )}
           <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <Input
             autoFocus
@@ -241,7 +306,7 @@ export function CategoryTreeMultiSelect({
             className="h-7 border-0 p-0 shadow-none focus-visible:ring-0"
           />
         </div>
-        <div className="max-h-[300px] overflow-y-auto p-1.5" role="tree">
+        <div className="max-h-[300px] overflow-y-auto overscroll-contain p-1.5" role="tree">
           {filtered.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
               {keyword.trim() ? "未找到匹配分类" : "暂无分类数据"}
