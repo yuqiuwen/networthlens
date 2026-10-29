@@ -63,7 +63,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/categories")({
-  head: () => ({ meta: [{ title: "分类管理 · NetWorthLens" }] }),
+  head: () => ({ meta: [{ title: "分类管理 · Finora" }] }),
   component: CategoriesPage,
 });
 

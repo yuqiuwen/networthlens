@@ -10,7 +10,7 @@ import {
   type TransCategoryWordItem,
 } from "@/lib/api/category-word";
 import { categoryApi } from "@/lib/api/category";
-import { CategoryTypeOptions } from "@/lib/constant";
+import { CategoryType, CategoryTypeOptions } from "@/lib/constant";
 import { CategoryTreeSelect } from "@/components/category-tree-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -39,9 +46,9 @@ import {
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
-      { title: "系统设置 — NetWorthLens" },
+      { title: "系统设置 — Finora" },
       { name: "description", content: "管理交易类别匹配词等系统设置。" },
-      { property: "og:title", content: "系统设置 — NetWorthLens" },
+      { property: "og:title", content: "系统设置 — Finora" },
       { property: "og:description", content: "管理交易类别匹配词等系统设置。" },
     ],
   }),
@@ -69,9 +76,15 @@ function SettingsPage() {
 
 const QK = ["category-words"];
 
+// 分类类型筛选的「全部」占位值
+const ALL_CATEGORY_TYPE = "all";
+
 function CategoryWordPanel() {
   const qc = useQueryClient();
   const [keyword, setKeyword] = useState("");
+  const [typeFilter, setTypeFilter] = useState<CategoryType | typeof ALL_CATEGORY_TYPE>(
+    ALL_CATEGORY_TYPE,
+  );
   const [selected, setSelected] = useState<number[]>([]);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -84,8 +97,13 @@ function CategoryWordPanel() {
   const rows = useMemo(() => {
     const k = keyword.trim().toLowerCase();
     const list = q.data ?? [];
-    return k ? list.filter((r) => (r.words ?? []).some((w) => w.toLowerCase().includes(k))) : list;
-  }, [q.data, keyword]);
+    return list.filter((r) => {
+      if (typeFilter !== ALL_CATEGORY_TYPE && r.category?.category_type !== typeFilter)
+        return false;
+      if (!k) return true;
+      return (r.words ?? []).some((w) => w.toLowerCase().includes(k));
+    });
+  }, [q.data, keyword, typeFilter]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -146,14 +164,36 @@ function CategoryWordPanel() {
   return (
     <Card className="p-4 space-y-4">
       <div className="flex flex-wrap items-center gap-2 justify-between">
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="搜索匹配词"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            className="pl-8"
-          />
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="搜索匹配词"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <Select
+            value={String(typeFilter)}
+            onValueChange={(v) =>
+              setTypeFilter(
+                v === ALL_CATEGORY_TYPE ? ALL_CATEGORY_TYPE : (Number(v) as CategoryType),
+              )
+            }
+          >
+            <SelectTrigger className="w-[130px]" aria-label="分类类型筛选">
+              <SelectValue placeholder="全部类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_CATEGORY_TYPE}>全部类型</SelectItem>
+              {CategoryTypeOptions.map((o) => (
+                <SelectItem key={o.value} value={String(o.value)}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex gap-2">
           <Button

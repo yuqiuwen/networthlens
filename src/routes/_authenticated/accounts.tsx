@@ -9,6 +9,8 @@ import {
   Banknote,
   Smartphone,
   PiggyBank,
+  Landmark,
+  TrendingUp,
   MoreHorizontal,
   Plus,
   Pencil,
@@ -16,6 +18,7 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  RefreshCw,
 } from "lucide-react";
 
 import { ApiError } from "@/lib/api";
@@ -24,16 +27,18 @@ import {
   type AccountListItem,
   type AccountDetail,
   type AccountBalance,
+  type AccountBalanceSyncResult,
   type CreateAccountPayload,
   type UpdateAccountPayload,
 } from "@/lib/api/account";
 import { secretApi } from "@/lib/api/secret";
-import { AccountStatus, AccountType } from "@/lib/constant";
+import { AccountStatus, AccountType, AccountTypeOptions } from "@/lib/constant";
 import { defineMap } from "@/utils/enum";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
@@ -72,26 +77,58 @@ import {
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/accounts")({
-  head: () => ({ meta: [{ title: "账户管理 · NetWorthLens" }] }),
+  head: () => ({ meta: [{ title: "账户管理 · Finora" }] }),
   component: AccountsPage,
 });
 
 // ---------------- 枚举 ----------------
 
-const ACCOUNT_TYPES = [
-  { value: 1, label: "储蓄卡", icon: Wallet, tone: "text-sky-500", surface: "bg-sky-500/10" },
-  {
-    value: 2,
-    label: "现金",
-    icon: Banknote,
-    tone: "text-emerald-500",
-    surface: "bg-emerald-500/10",
+/**
+ * 账户类型的**视觉元数据**（图标 / 配色）。
+ *
+ * 中文名不在这里写 —— label 一律取自 `AccountTypeOptions`（src/lib/constant.ts），
+ * 键值严格对齐后端 `app/constant.py::AccountType`。
+ *
+ * 这里曾经是一份自带的 6 项列表（储蓄卡 / 现金 / 信用卡 / 支付宝 / 微信 / 其他），
+ * 编号和后端枚举整体错位：
+ *
+ *   | 值 | 旧列表显示 | 后端真实含义 |
+ *   | 1  | 储蓄卡     | 现金         |
+ *   | 2  | 现金       | 银行存款     |
+ *   | 3  | 信用卡     | 支付账户     |
+ *   | 4  | 支付宝     | 信用卡       |
+ *   | 5  | 微信       | 证券账户     |
+ *   | 6  | 其他       | 理财账户     |
+ *
+ * 后果有两个，都很隐蔽：
+ *   1. 同一个账户在「账户管理」和「财务概览」显示成两个不同的类型
+ *      （概览页走 constant.ts 的映射，是对的）；
+ *   2. 用户在账户页选「支付宝」提交的是 4，后端存成「信用卡」；
+ *      选「微信」提交 5，存成「证券账户」—— 类型从录入那一刻就是错的。
+ *
+ * 所以现在只保留图标/配色，label 与取值都从共享枚举来，避免再出现第二份真相。
+ */
+const ACCOUNT_TYPE_VISUALS: Record<
+  AccountType,
+  { icon: React.ComponentType<{ className?: string }>; tone: string; surface: string }
+> = {
+  [AccountType.CASH]: { icon: Banknote, tone: "text-emerald-500", surface: "bg-emerald-500/10" },
+  [AccountType.BANK]: { icon: Landmark, tone: "text-sky-500", surface: "bg-sky-500/10" },
+  [AccountType.PAYMENT]: { icon: Smartphone, tone: "text-blue-500", surface: "bg-blue-500/10" },
+  [AccountType.CREDIT_CARD]: { icon: CreditCard, tone: "text-rose-500", surface: "bg-rose-500/10" },
+  [AccountType.SECURITIES]: {
+    icon: TrendingUp,
+    tone: "text-violet-500",
+    surface: "bg-violet-500/10",
   },
-  { value: 3, label: "信用卡", icon: CreditCard, tone: "text-rose-500", surface: "bg-rose-500/10" },
-  { value: 4, label: "支付宝", icon: Smartphone, tone: "text-blue-500", surface: "bg-blue-500/10" },
-  { value: 5, label: "微信", icon: Smartphone, tone: "text-green-500", surface: "bg-green-500/10" },
-  { value: 6, label: "其他", icon: PiggyBank, tone: "text-muted-foreground", surface: "bg-muted" },
-] as const;
+  [AccountType.WEALTH]: { icon: PiggyBank, tone: "text-amber-500", surface: "bg-amber-500/10" },
+  [AccountType.OTHER]: { icon: Wallet, tone: "text-muted-foreground", surface: "bg-muted" },
+};
+
+const ACCOUNT_TYPES = AccountTypeOptions.map((option) => ({
+  ...option,
+  ...ACCOUNT_TYPE_VISUALS[option.value],
+}));
 
 type AccountTypeDef = {
   value: number;
@@ -138,6 +175,25 @@ const formatAmount = (cents: number, currency = "CNY") => {
     return `${currency} ${value.toFixed(2)}`;
   }
 };
+
+/**
+ * 「余额多久没对过账」的短文案。
+ *
+ * 银行 / 微信 / 支付宝都没有余额查询接口，账单导出里也没有余额列，
+ * 所以余额只能靠人从三方 App 上看到后录进来。既然没法自动更新，
+ * 就至少把「这个数有多旧」如实说出来，而不是假装它是当前的。
+ *
+ * 从未实测时后端返回的 `balance_updated_at` 字段会被 exclude_none 整个摘掉，
+ * 所以这里必须用 `== null` 判断，不能当空串。
+ */
+function balanceFreshness(measuredAt?: string | null): string {
+  if (measuredAt == null) return "余额未实测";
+  const at = new Date(measuredAt).getTime();
+  if (Number.isNaN(at)) return "余额未实测";
+  const days = Math.floor((Date.now() - at) / 86_400_000);
+  if (days <= 0) return "余额今天已实测";
+  return `余额 ${days} 天前实测`;
+}
 
 // ---------------- 表单 Dialog ----------------
 
@@ -256,7 +312,7 @@ function AccountFormDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "编辑账户" : "新增账户"}</DialogTitle>
           <DialogDescription>
-            {isEdit ? "更新账户名称、余额或启用状态。" : "添加银行卡、现金、信用卡等账户。"}
+            {isEdit ? "更新账户类型、名称、余额或启用状态。" : "添加银行卡、现金、信用卡等账户。"}
           </DialogDescription>
         </DialogHeader>
 
@@ -265,7 +321,6 @@ function AccountFormDialog({
             <Label>账户类型</Label>
             <Select
               value={String(form.account_type)}
-              disabled={isEdit}
               onValueChange={(v) =>
                 setForm((f) => ({ ...f, account_type: Number(v) as AccountType }))
               }
@@ -369,7 +424,11 @@ function AccountFormDialog({
 
           {isEdit && (
             <>
-              {editing.account_type === 3 && detail && (
+              {/* 信用额度只有信用卡才有。原先这里写的是 `account_type === 3`，
+                  但枚举里 3 是 PAYMENT（支付账户）、CREDIT_CARD 是 4 —— 魔数写错了，
+                  导致额度显示在支付账户上、信用卡反而看不到。
+                  改成引用枚举，避免以后再对不上号。 */}
+              {editing.account_type === AccountType.CREDIT_CARD && detail && (
                 <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted p-3">
                   <div>
                     <div className="text-xs text-muted-foreground">信用额度</div>
@@ -498,6 +557,188 @@ function AmountVisibilityDialog({
   );
 }
 
+/**
+ * 同步余额：把三方 App 上看到的实际余额录进来。
+ *
+ * 为什么要有这个入口而不是直接用「编辑」：
+ * 编辑表单要经历「打开编辑 → 点眼睛 → 输密钥 → 改数字 → 保存」五步，
+ * 而余额本来就是人打开银行 App 时会顺便看到的东西，瓶颈全在录入环节。
+ * 这里把它压成「金额 + 密钥 + 保存」一屏。
+ *
+ * 保存后会显示本次对账算出的**未记录缺口**：
+ * 缺口 = 本次实测 −（上次实测 + 期间已记录流水净额）。
+ * 它不是一个要维护的成本，而是账单完整度的直接读数 ——
+ * 填一次余额，顺便就得到了「流水比实际少了多少」。
+ */
+function SyncBalanceDialog({
+  open,
+  onOpenChange,
+  account,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  account: AccountListItem | null;
+  onSubmit: (payload: { code: string; balance: number }) => Promise<AccountBalanceSyncResult>;
+}) {
+  const [amount, setAmount] = useState("");
+  const [code, setCode] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<AccountBalanceSyncResult | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setAmount("");
+      setCode("");
+      setSubmitting(false);
+      setResult(null);
+    }
+  }, [open]);
+
+  const currency = account?.currency ?? "CNY";
+  const amountCents = Math.round(Number(amount) * 100);
+  const amountValid = amount.trim() !== "" && Number.isFinite(amountCents);
+  const canSubmit = amountValid && code.length === 6 && !submitting;
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      // 余额是敏感信息（读接口都走查看密钥），写接口沿用同一道门：
+      // 先换取加密后的密钥，再连同新余额一起提交。
+      const encryptedCode = await secretApi.verify({ code });
+      setResult(await onSubmit({ code: encryptedCode, balance: amountCents }));
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "同步余额失败");
+      setCode("");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const drift = result?.drift ?? 0;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{result ? "已同步余额" : "同步余额"}</DialogTitle>
+          <DialogDescription>
+            {result
+              ? account?.name
+              : `填入「${account?.name ?? ""}」在三方 App 里显示的实际余额，用于对账。`}
+          </DialogDescription>
+        </DialogHeader>
+
+        {result ? (
+          <div className="grid gap-3 py-2 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">本次录入</span>
+              <span className="font-display font-semibold tabular-nums">
+                {formatAmount(result.balance, currency)}
+              </span>
+            </div>
+
+            {result.drift_available ? (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">上次实测</span>
+                  <span className="tabular-nums">
+                    {formatAmount(result.previous_balance, currency)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">期间已记录流水</span>
+                  <span className="tabular-nums">
+                    {formatAmount(result.recorded_flow ?? 0, currency)}
+                  </span>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">未记录缺口</span>
+                  <span className="font-display font-semibold tabular-nums">
+                    {formatAmount(drift, currency)}
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {drift > 0
+                    ? "流水少记了这笔钱：按流水推算的余额比实际更低，说明有支出没导进来，或有转入没记。"
+                    : drift < 0
+                      ? "流水多记了这笔钱：按流水推算的余额比实际更高，说明有收入没导进来，或有转出没记。"
+                      : "流水与实测完全对上，这段时间的账单是完整的。"}
+                </p>
+              </>
+            ) : (
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                这是该账户的第一次实测，已作为基准。下次同步时就能算出这段时间的未记录缺口。
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="sync-balance-amount">实际余额（{currency}）</Label>
+              <Input
+                id="sync-balance-amount"
+                type="number"
+                step="0.01"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                disabled={submitting}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                银行、微信、支付宝都没有余额查询接口，这个数只能手动录。
+                录入后会记录实测时间，并算出这段时间账单漏了多少。
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>查看密钥</Label>
+              <div className="flex justify-center">
+                <InputOTP
+                  maxLength={6}
+                  value={code}
+                  onChange={setCode}
+                  pattern={REGEXP_ONLY_DIGITS}
+                  type="password"
+                  inputMode="numeric"
+                  disabled={submitting}
+                  aria-label="6 位数字查看密钥"
+                >
+                  <InputOTPGroup>
+                    {Array.from({ length: 6 }, (_, index) => (
+                      <InputOTPSlot key={index} index={index} />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          {result ? (
+            <Button onClick={() => onOpenChange(false)}>完成</Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+                取消
+              </Button>
+              <Button onClick={handleSubmit} disabled={!canSubmit}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                保存
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AmountVisibilityButton({
   visible,
   onClick,
@@ -546,6 +787,7 @@ function AccountsPage() {
   const [balancesById, setBalancesById] = useState<Record<string, AccountBalance>>({});
   const [formBalanceVisible, setFormBalanceVisible] = useState(false);
   const [visibilityTarget, setVisibilityTarget] = useState<VisibilityTarget | null>(null);
+  const [syncTarget, setSyncTarget] = useState<AccountListItem | null>(null);
 
   const {
     data: accounts,
@@ -563,6 +805,9 @@ function AccountsPage() {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    // 账户余额是仪表盘「总资产 / 资金账户」的输入，改完必须一起失效，
+    // 否则切回仪表盘还是旧数字（以前只失效 ["accounts"]，这里补上）。
+    queryClient.invalidateQueries({ queryKey: ["stats"] });
     setAmountsVisible(false);
     setVisibleAccountIds(new Set());
     setHiddenAccountIds(new Set());
@@ -648,6 +893,14 @@ function AccountsPage() {
     },
   });
 
+  // 同步余额。故意不在这里写 onError：错误要冒泡回对话框，
+  // 由它把提示和「重新输入密钥」一起处理，避免弹两次 toast。
+  const syncMut = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { code: string; balance: number } }) =>
+      accountApi.syncBalance(id, payload),
+    onSuccess: () => invalidate(),
+  });
+
   const requestAmountVisibility = (target: VisibilityTarget) => {
     if (secretStatusQuery.isLoading) {
       toast.info("正在检查查看密钥状态");
@@ -658,6 +911,18 @@ function AccountsPage() {
       return;
     }
     setVisibilityTarget(target);
+  };
+
+  const requestSync = (account: AccountListItem) => {
+    if (secretStatusQuery.isLoading) {
+      toast.info("正在检查查看密钥状态");
+      return;
+    }
+    if (!secretStatusQuery.data?.configured) {
+      toast.error("请先在个人中心设置 6 位数字查看密钥");
+      return;
+    }
+    setSyncTarget(account);
   };
 
   const toggleAmounts = () => {
@@ -705,6 +970,7 @@ function AccountsPage() {
   const handleSubmit = (form: FormState) => {
     if (editing) {
       const payload: UpdateAccountPayload = {
+        account_type: form.account_type,
         name: form.name.trim(),
         status: form.status,
         note: form.note.trim() || null,
@@ -864,6 +1130,10 @@ function AccountsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => requestSync(acc)}>
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          同步余额
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEdit(acc)} disabled={fetchingDetail}>
                           <Pencil className="mr-2 h-4 w-4" />
                           编辑
@@ -891,8 +1161,11 @@ function AccountsPage() {
 
                     <div className="flex items-end justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="truncate text-xs text-muted-foreground">
-                          {meta.label} · {acc.currency}
+                        <div
+                          className="truncate text-xs text-muted-foreground"
+                          title="三方渠道都没有余额查询接口，余额只能手动同步。这里显示上次实测距今多久。"
+                        >
+                          {meta.label} · {acc.currency} · {balanceFreshness(acc.balance_updated_at)}
                         </div>
                         <div className="truncate font-display text-lg font-semibold tabular-nums">
                           {accountAmountVisible
@@ -970,6 +1243,18 @@ function AccountsPage() {
           if (visibilityTarget) verifySecretMut.mutate({ code, target: visibilityTarget });
         }}
         submitting={verifySecretMut.isPending || balanceMut.isPending}
+      />
+
+      <SyncBalanceDialog
+        open={syncTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setSyncTarget(null);
+        }}
+        account={syncTarget}
+        onSubmit={async ({ code, balance }) => {
+          if (!syncTarget) throw new Error("未选择账户");
+          return syncMut.mutateAsync({ id: syncTarget.id, payload: { code, balance } });
+        }}
       />
     </div>
   );

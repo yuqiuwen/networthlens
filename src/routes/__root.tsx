@@ -12,6 +12,7 @@ import {
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/sonner";
+import { FAVICON_DATA_URI } from "@/components/logo";
 
 function NotFoundComponent() {
   return (
@@ -19,9 +20,7 @@ function NotFoundComponent() {
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">页面未找到</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          你访问的页面不存在或已被移除。
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">你访问的页面不存在或已被移除。</p>
         <div className="mt-6">
           <Link
             to="/"
@@ -42,12 +41,8 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          页面加载失败
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {message || "发生了意外错误"}
-        </p>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">页面加载失败</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{message || "发生了意外错误"}</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -75,20 +70,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "NetWorthLens · 个人资产管理平台" },
+      { title: "Finora · Your Wealth, In Focus." },
       {
         name: "description",
         content:
-          "以净资产为核心的个人财务驾驶舱：统一管理资产、负债、现金流、投资与目标。",
+          "Finora 是一款现代化个人财务管理平台，集账户管理、资产分析、投资持仓追踪、财务目标规划和 AI 智能助手于一体，帮助用户清晰掌握财务状况，更从容地规划未来。",
       },
     ],
     links: [
+      { rel: "icon", type: "image/svg+xml", href: FAVICON_DATA_URI },
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       {
+        // Inter 负责西文与数字，Noto Sans SC（思源黑体）负责中文。
+        // 中文子集很大，这里只取 400/500/600/700 四档，避免拖慢首屏。
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap",
       },
     ],
   }),

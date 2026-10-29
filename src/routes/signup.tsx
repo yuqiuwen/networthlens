@@ -27,8 +27,8 @@ export const Route = createFileRoute("/signup")({
   },
   head: () => ({
     meta: [
-      { title: "注册 · NetWorthLens" },
-      { name: "description", content: "创建你的 NetWorthLens 账户，三分钟搭建个人资产概览。" },
+      { title: "注册 · Finora" },
+      { name: "description", content: "创建你的 Finora 账户，三分钟搭建个人资产概览。" },
     ],
   }),
   component: SignupPage,

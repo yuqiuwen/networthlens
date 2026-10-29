@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,29 +37,26 @@ import {
   Clock,
   Heart,
   KeyRound,
+  Pencil,
   Loader2,
   Trash2,
+  Briefcase,
+  Users,
 } from "lucide-react";
 import { ApiError } from "@/lib/api";
 import { secretApi } from "@/lib/api/secret";
-import { userApi, type UserProfile } from "@/lib/api/user";
-import { defineMap } from "@/utils/enum";
+import { userApi, userProfileQueryOptions, type UpdateProfilePayload } from "@/lib/api/user";
+import { GenderMap } from "@/lib/constant";
+import { ProfileFormSheet } from "@/components/profile-form-sheet";
+import { UserAvatar } from "@/components/user-avatar";
 import { formatTimestamp } from "@/utils/time";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
 });
 
-const GENDERS = [
-  { value: 0, label: "女", color: "bg-pink-500/15 text-pink-600 dark:text-pink-300" },
-  { value: 1, label: "男", color: "bg-sky-500/15 text-sky-600 dark:text-sky-300" },
-] as const;
-
-const GENDER_MAP = defineMap(
-  GENDERS as unknown as { value: number; label: string; color: string }[],
-  "value",
-  ["label", "color"],
-) as Record<number, { label: string; color: string }>;
+/** 性别未设置时的展示兜底（后端该字段为 NULL 时会被 exclude_none 整个丢掉） */
+const UNKNOWN_GENDER = { label: "未知", color: "bg-muted text-muted-foreground" };
 
 function InfoRow({
   icon: Icon,
@@ -198,9 +194,19 @@ function ProfilePage() {
   const queryClient = useQueryClient();
   const [secretDialogOpen, setSecretDialogOpen] = useState(false);
   const [deleteSecretOpen, setDeleteSecretOpen] = useState(false);
-  const { data, isLoading, isError, error } = useQuery<UserProfile>({
-    queryKey: ["user", "profile"],
-    queryFn: () => userApi.getProfile(),
+  const [editOpen, setEditOpen] = useState(false);
+  // 与 AuthProvider（侧边栏底部头像的数据源）共用同一份 queryOptions：
+  // queryKey 一致，保存后的失效/写回才能同时刷新两处，不会一个变了另一个还是旧名字。
+  const { data, isLoading, isError } = useQuery(userProfileQueryOptions);
+  const updateMutation = useMutation({
+    mutationFn: (payload: UpdateProfilePayload) => userApi.updateProfile(payload),
+    onSuccess: (updated) => {
+      toast.success("资料已更新");
+      setEditOpen(false);
+      // 直接把返回值写回缓存：侧边栏的头像与用户名立刻同步，无需等重新请求。
+      queryClient.setQueryData(userProfileQueryOptions.queryKey, updated);
+    },
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : "保存失败"),
   });
   const secretQuery = useQuery({
     queryKey: ["secret-status"],
@@ -230,41 +236,58 @@ function ProfilePage() {
   if (isError || !data) {
     return (
       <Card>
-        <CardContent className="p-6 text-sm text-destructive">
-          加载个人信息失败
-        </CardContent>
+        <CardContent className="p-6 text-sm text-destructive">加载个人信息失败</CardContent>
       </Card>
     );
   }
 
-  const gender = GENDER_MAP[data.gender] ?? {
-    label: "未知",
-    color: "bg-muted text-muted-foreground",
-  };
-  const initial = data.username?.slice(0, 1)?.toUpperCase() ?? "U";
+  const gender = (data.gender != null ? GenderMap[data.gender] : undefined) ?? UNKNOWN_GENDER;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-semibold">个人中心</h1>
-        <p className="mt-1 text-sm text-muted-foreground">管理你的账户信息与偏好设置</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-display font-semibold">个人中心</h1>
+          <p className="mt-1 text-sm text-muted-foreground">管理你的账户信息与偏好设置</p>
+        </div>
+        <Button onClick={() => setEditOpen(true)}>
+          <Pencil className="mr-2 h-4 w-4" />
+          编辑资料
+        </Button>
       </div>
+
+      <ProfileFormSheet
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        profile={data}
+        onSubmit={(payload) => updateMutation.mutate(payload)}
+        submitting={updateMutation.isPending}
+      />
 
       <Card>
         <CardHeader className="flex flex-row items-center gap-4 space-y-0">
-          <Avatar className="h-16 w-16">
-            <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary">
-              {initial}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            name={data.username}
+            src={data.avatar}
+            className="h-16 w-16"
+            textClassName="text-lg"
+          />
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <CardTitle className="truncate text-xl">{data.username}</CardTitle>
+              {data.title ? (
+                <Badge variant="outline" className="gap-1">
+                  <Briefcase className="h-3 w-3" />
+                  {data.title}
+                </Badge>
+              ) : null}
               <Badge variant="secondary" className={gender.color}>
                 {gender.label}
               </Badge>
             </div>
-            <p className="truncate text-sm text-muted-foreground">@{data.account}</p>
+            {data.account ? (
+              <p className="truncate text-sm text-muted-foreground">@{data.account}</p>
+            ) : null}
             {data.introduce ? (
               <p className="line-clamp-2 text-sm text-muted-foreground">{data.introduce}</p>
             ) : null}
@@ -307,14 +330,25 @@ function ProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">基本信息</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-base">基本信息</CardTitle>
+            <span className="text-xs text-muted-foreground">
+              用户名、头衔、性别、生日、简介、头像可在「编辑资料」中修改
+            </span>
+          </div>
         </CardHeader>
         <CardContent className="grid gap-x-8 sm:grid-cols-2">
           <InfoRow icon={IdCard} label="用户 ID">
             {data.id}
           </InfoRow>
           <InfoRow icon={UserIcon} label="账号">
-            {data.account}
+            {data.account || "—"}
+          </InfoRow>
+          <InfoRow icon={Briefcase} label="头衔">
+            {data.title || "—"}
+          </InfoRow>
+          <InfoRow icon={Users} label="性别">
+            {gender.label}
           </InfoRow>
           <InfoRow icon={Mail} label="邮箱">
             {data.email || "—"}

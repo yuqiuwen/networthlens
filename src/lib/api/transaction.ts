@@ -74,7 +74,6 @@ export function normalizeTransactionQuery<T extends Partial<TransactionQuery>>(
   return params;
 }
 
-
 export interface CreateTransactionPayload {
   channel: TransactionChannel;
   transaction_type: TransactionType;
@@ -103,6 +102,38 @@ export interface ImportTransactionResult {
   failed_count: number;
   skipped_count?: number;
   import_source: ImportSource;
+}
+
+/** 冲减配对中的一侧流水。金额单位为分，符号沿用后端约定（支出为负）。 */
+export interface OffsetTransactionSide {
+  id: string;
+  transaction_id: string;
+  /** 后端 response_model_exclude_none，空值字段会整个消失 */
+  merchant?: string | null;
+  product?: string | null;
+  amount: number;
+  status: TransactionStatus;
+  occurred_at: string;
+}
+
+export interface OffsetMatchItem {
+  expense: OffsetTransactionSide;
+  refund: OffsetTransactionSide;
+  /** 命中依据，如 ["商户名互相包含"] */
+  reasons: string[];
+  interval_days: number;
+}
+
+export interface OffsetDetectResult {
+  max_days: number;
+  applied: boolean;
+  /** 参与匹配的候选流水数 */
+  candidate_count: number;
+  /** 识别出的配对组数 */
+  match_count: number;
+  /** 实际被标记的流水笔数，dry-run 恒为 0 */
+  updated_count: number;
+  matches: OffsetMatchItem[];
 }
 
 export const transactionApi = {
@@ -136,4 +167,11 @@ export const transactionApi = {
       },
     });
   },
+
+  /**
+   * 识别「支出 + 退款」冲减配对。
+   * `apply: false` 只预览，`true` 才会把双方标记为冲减消费（transaction_type=8）。
+   */
+  detectOffset: (payload: { max_days: number; apply: boolean }) =>
+    request.post<OffsetDetectResult>("/v1/transaction/offset/detect", payload),
 };

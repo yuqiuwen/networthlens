@@ -74,7 +74,7 @@ import { CategoryTreeSelect } from "@/components/category-tree-select";
 import { DatePicker } from "@/components/date-picker";
 
 export const Route = createFileRoute("/_authenticated/assets")({
-  head: () => ({ meta: [{ title: "资产管理 · NetWorthLens" }] }),
+  head: () => ({ meta: [{ title: "资产管理 · Finora" }] }),
   component: AssetsPage,
 });
 

@@ -19,6 +19,36 @@ function toRequestUrl(path: string) {
 const ACCESS_TOKEN_KEY = "nwl_access_token";
 const ACCESS_TOKEN_EXPIRE_KEY = "nwl_access_token_expire";
 
+type TokenListener = () => void;
+const tokenListeners = new Set<TokenListener>();
+
+/**
+ * 最近一次「被动失效」的原因，用来告诉用户他为什么被弹回了登录页。
+ * 主动退出（`logout`）不传 reason，所以不会弹提示 —— 自己点的退出不需要解释。
+ */
+let clearedReason: string | null = null;
+
+function emitTokenChange() {
+  for (const listener of tokenListeners) listener();
+}
+
+/**
+ * 登录态存储。
+ *
+ * 之所以做成「可订阅」，是因为它以前是**哑**的：`unwrap()` 在刷新失败时会
+ * `tokenStore.clear()` 清掉 localStorage，但 `AuthProvider` 里的 `token` state
+ * 并不知道这件事，`isAuthenticated` 仍然是 `true`。而 `_authenticated.tsx` 的
+ * 路由守卫走的是 `beforeLoad` —— 它**只在导航时执行一次**，页面已经渲染出来之后
+ * 不会再跑。两个原因叠加，用户就会停在原页面看一张「加载失败：认证失败」的
+ * 错误卡片：localStorage 里已经登出了，内存里还以为自己登着，既不跳转也不恢复。
+ *
+ * 改成订阅制后，任何一处 `set` / `clear`（`unwrap`、`chat.ts` 的流式分支、
+ * `AuthProvider` 自己）都会同步到 React 状态，两边不会再分叉。
+ *
+ * 注意：`get()` 只看「有没有」，不校验 `nwl_access_token_expire`。过期的 token
+ * 依然算「有」，靠 `unwrap` 拿到 `code=40001` 后再去刷新 —— 这是刻意的，
+ * 前端不做时间判断，避免客户端时钟不准造成误判。
+ */
 export const tokenStore = {
   get(): string | null {
     if (typeof window === "undefined") return null;
@@ -28,11 +58,33 @@ export const tokenStore = {
     if (typeof window === "undefined") return;
     localStorage.setItem(ACCESS_TOKEN_KEY, token);
     localStorage.setItem(ACCESS_TOKEN_EXPIRE_KEY, String(Date.now() + expireIn * 1000));
+    // 换到新 token 说明上一轮失效已被恢复，把待提示的原因一起丢掉。
+    clearedReason = null;
+    emitTokenChange();
   },
-  clear() {
+  /**
+   * 清空登录态。
+   * @param reason 传入表示「被动失效」（刷新失败、流式接口 401 等），会被 UI 取走并
+   *               提示用户；不传表示用户主动退出，静默处理。
+   */
+  clear(reason?: string) {
     if (typeof window === "undefined") return;
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(ACCESS_TOKEN_EXPIRE_KEY);
+    clearedReason = reason ?? null;
+    emitTokenChange();
+  },
+  subscribe(listener: TokenListener): () => void {
+    tokenListeners.add(listener);
+    return () => {
+      tokenListeners.delete(listener);
+    };
+  },
+  /** 取走并清空「被动失效」原因。只在准备提示用户时调用一次，避免重复弹窗。 */
+  consumeClearedReason(): string | null {
+    const reason = clearedReason;
+    clearedReason = null;
+    return reason;
   },
 };
 
@@ -138,7 +190,9 @@ async function unwrap<T>(
       await refreshToken();
       return unwrap<T>(method, path, { ...options, _retry: true });
     } catch {
-      tokenStore.clear();
+      // 带上 reason：登录态是被动失效的，用户没主动退出，所以要如实说明原因，
+      // 否则他只会看到一张「加载失败：认证失败」的卡片，不知道发生了什么。
+      tokenStore.clear(envelope.errmsg || "登录状态已失效，请重新登录");
       throw new ApiError(40001, envelope.errmsg || "未认证，请重新登录");
     }
   }

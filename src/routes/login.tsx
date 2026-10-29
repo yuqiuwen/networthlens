@@ -26,8 +26,8 @@ export const Route = createFileRoute("/login")({
   },
   head: () => ({
     meta: [
-      { title: "登录 · NetWorthLens" },
-      { name: "description", content: "登录你的 NetWorthLens 账户，查看净资产与财务目标。" },
+      { title: "登录 · Finora" },
+      { name: "description", content: "登录你的 Finora 账户，查看总资产与现金流。" },
     ],
   }),
   component: LoginPage,
@@ -88,7 +88,7 @@ function LoginPage() {
   return (
     <AuthCard
       title="欢迎回来"
-      subtitle="使用手机号或邮箱登录你的财务驾驶舱"
+      subtitle="登录你的 Finora 账户，继续管理你的财富"
       footer={
         <span>
           还没有账户？{" "}

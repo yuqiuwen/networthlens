@@ -1,22 +1,43 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, BarChart3, PiggyBank, Target, Shield, Sparkles, TrendingUp } from "lucide-react";
+import {
+  ArrowRight,
+  BarChart3,
+  Bot,
+  PiggyBank,
+  Receipt,
+  Sparkles,
+  Target,
+  Wallet,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Logo, LogoMark } from "@/components/logo";
+
+/**
+ * 落地页
+ *
+ * 品牌口径（与 README、__root.tsx 保持一致）：
+ * - 产品名只有英文 **Finora**，没有中文名。中文只出现在描述性文案里。
+ * - Slogan 是 **Your Wealth, In Focus.** —— 中英双语的「产品介绍」段落是用户给的原文，
+ *   不要再改写或压缩，那是对外统一话术。
+ */
+const TAGLINE = "Your Wealth, In Focus.";
+
+const INTRO_EN =
+  "Finora is a modern personal finance management platform that helps you organize financial accounts, analyze assets, track investment portfolios, and achieve financial goals with AI-powered insights.";
+
+const INTRO_ZH =
+  "Finora 是一款现代化个人财务管理平台，集账户管理、资产分析、投资持仓追踪、财务目标规划和 AI 智能助手于一体，帮助用户清晰掌握财务状况，更从容地规划未来。";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "NetWorthLens · 个人财务驾驶舱" },
-      {
-        name: "description",
-        content:
-          "以净资产为核心的个人资产管理平台。统一管理资产、负债、现金流、投资与目标，让财务长期视角触手可及。",
-      },
-      { property: "og:title", content: "NetWorthLens · 个人财务驾驶舱" },
-      {
-        property: "og:description",
-        content: "看清净资产、管好现金流、追踪财务目标。",
-      },
+      { title: `Finora · ${TAGLINE}` },
+      { name: "description", content: INTRO_ZH },
+      { property: "og:title", content: `Finora · ${TAGLINE}` },
+      { property: "og:description", content: INTRO_EN },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Landing,
@@ -28,16 +49,26 @@ function Landing() {
       {/* Nav */}
       <header className="absolute top-0 inset-x-0 z-20">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 h-20 flex items-center justify-between text-sidebar-foreground">
-          <Link to="/" className="font-display text-xl font-semibold">
-            <span className="text-gradient-gold">NetWorthLens</span>
+          <Link to="/" className="flex items-center" aria-label="Finora 首页">
+            <Logo tone="onDark" markClassName="h-9" wordmarkClassName="text-xl" />
           </Link>
           <nav className="hidden md:flex items-center gap-8 text-sm text-sidebar-foreground/70">
-            <a href="#features" className="hover:text-sidebar-foreground transition">功能</a>
-            <a href="#why" className="hover:text-sidebar-foreground transition">为什么选择</a>
-            <a href="#metrics" className="hover:text-sidebar-foreground transition">数据</a>
+            <a href="#features" className="hover:text-sidebar-foreground transition">
+              功能
+            </a>
+            <a href="#metrics" className="hover:text-sidebar-foreground transition">
+              数据
+            </a>
+            <a href="#about" className="hover:text-sidebar-foreground transition">
+              关于
+            </a>
           </nav>
           <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" className="text-sidebar-foreground hover:bg-white/10 hover:text-sidebar-foreground">
+            <Button
+              asChild
+              variant="ghost"
+              className="text-sidebar-foreground hover:bg-white/10 hover:text-sidebar-foreground"
+            >
               <Link to="/login">登录</Link>
             </Button>
             <Button asChild className="bg-gold text-gold-foreground hover:bg-gold/90">
@@ -52,32 +83,80 @@ function Landing() {
         className="relative overflow-hidden text-sidebar-foreground"
         style={{ background: "var(--gradient-hero)" }}
       >
-        <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full opacity-30"
-          style={{ background: "var(--gradient-gold)", filter: "blur(120px)" }} />
-        <div className="absolute -bottom-40 -left-20 w-[500px] h-[500px] rounded-full opacity-20"
-          style={{ background: "var(--gradient-primary)", filter: "blur(120px)" }} />
+        {/* 背景层：细网格 + 右侧光斑 + 一圈「对焦环」。
+            网格用 mask 只在右半边淡入，左侧文案区保持干净；
+            色相跟着 --gradient-hero 的祖母绿（H165）走，不要用品牌青绿 H181，
+            否则会和金色 CTA 打架。 */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage:
+              "linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.08) 1px, transparent 1px)",
+            backgroundSize: "76px 76px",
+            maskImage: "radial-gradient(900px 700px at 70% 45%, #000 0%, transparent 80%)",
+            WebkitMaskImage: "radial-gradient(900px 700px at 70% 45%, #000 0%, transparent 80%)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 right-10 hidden h-[420px] w-[420px] -translate-y-1/2 rounded-full opacity-65 xl:block"
+          style={{
+            background: "radial-gradient(circle, oklch(0.78 0.10 170 / 0.55), transparent 68%)",
+            filter: "blur(80px)",
+          }}
+        />
+        {/* 「对焦环」呼应 slogan 里的 In Focus */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 right-24 hidden h-[330px] w-[330px] -translate-y-1/2 rounded-full border xl:block"
+          style={{
+            borderColor: "oklch(0.72 0.11 168 / 0.28)",
+            background: "radial-gradient(circle, oklch(0.66 0.11 168 / 0.26) 0%, transparent 68%)",
+          }}
+        />
+        <div
+          className="absolute -bottom-40 -left-20 w-[500px] h-[500px] rounded-full opacity-20"
+          style={{ background: "var(--gradient-primary)", filter: "blur(120px)" }}
+        />
 
         <div className="relative max-w-7xl mx-auto px-6 lg:px-10 pt-40 pb-32">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-sidebar-foreground/80">
+            {/* 标识本身是 100.1×116.6（略高于宽），所以只给高度、宽度交给 viewBox 的固有比例，
+                否则用 w-20 会把它压成正方形并在左右留白。 */}
+            <LogoMark
+              className="h-20 w-auto text-sidebar-foreground drop-shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
+              title="Finora 标识"
+            />
+            <div className="mt-7 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-sidebar-foreground/80">
               <Sparkles className="h-3 w-3 text-gold" />
-              个人财务驾驶舱 · 全新发布
+              个人财务管理平台 · 全新发布
             </div>
             <h1 className="mt-6 font-display text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-tight leading-[1.05]">
-              看清<span className="text-gradient-gold">净资产</span>，<br />
-              管好每一分现金流。
+              Your Wealth,
+              <br />
+              <span className="text-gradient-gold">In Focus.</span>
             </h1>
             <p className="mt-6 text-lg text-sidebar-foreground/75 max-w-2xl leading-relaxed">
-              统一管理资产、负债、投资持仓与财务目标。让你随时知道：我有多少资产、负债还剩多少、净资产增长了多少、目标还差多少。
+              {INTRO_ZH}
             </p>
             <div className="mt-10 flex flex-wrap gap-3">
-              <Button asChild size="lg" className="bg-gold text-gold-foreground hover:bg-gold/90 shadow-[var(--shadow-gold)]">
+              <Button
+                asChild
+                size="lg"
+                className="bg-gold text-gold-foreground hover:bg-gold/90 shadow-[var(--shadow-gold)]"
+              >
                 <Link to="/signup">
                   3 分钟搭建资产概览
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="border-white/20 bg-white/5 text-sidebar-foreground hover:bg-white/10 hover:text-sidebar-foreground">
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="border-white/20 bg-white/5 text-sidebar-foreground hover:bg-white/10 hover:text-sidebar-foreground"
+              >
                 <Link to="/login">我已有账户</Link>
               </Button>
             </div>
@@ -94,21 +173,47 @@ function Landing() {
               不只是记账，而是财务全景视图
             </h2>
             <p className="mt-4 text-muted-foreground">
-              记账类产品偏重流水，投资类工具偏重收益率。NetWorthLens 以净资产为核心，把所有维度串成一个系统。
+              记账类产品偏重流水，账户类工具只看余额。Finora
+              把账户、资产与现金流串成一个系统，让你看清钱从哪来、花到哪去。
             </p>
           </div>
 
           <div className="mt-16 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { icon: BarChart3, title: "净资产趋势", desc: "实时计算总资产 - 总负债，看清你的财务曲线如何随时间变化。" },
-              { icon: PiggyBank, title: "资产结构", desc: "现金、投资、房产分类一目了然，发现配置失衡，主动优化。" },
-              { icon: TrendingUp, title: "投资持仓", desc: "基金 / 股票持仓汇总，成本、市值、收益率统一视角。" },
-              { icon: Target, title: "财务目标", desc: "买房首付、应急金、旅行基金 — 目标与资产联动，进度可视化。" },
-              { icon: Shield, title: "安全可信", desc: "JWT 双 Token 鉴权、本地加密存储，数据由你掌控。" },
-              { icon: Sparkles, title: "智能提醒", desc: "账单到期、资产更新、目标节点 — 关键节点不再遗漏。" },
+              {
+                icon: BarChart3,
+                title: "财务概览",
+                desc: "总资产、可用资金、本月收支与储蓄率，一屏看清财务全貌。",
+              },
+              {
+                icon: Wallet,
+                title: "账户管理",
+                desc: "现金、银行卡、支付账户、信用卡、证券与理财账户，余额统一汇总。",
+              },
+              {
+                icon: PiggyBank,
+                title: "资产管理",
+                desc: "房产、车辆、收藏品等按自定义分类记录，估值与购入成本都留档。",
+              },
+              {
+                icon: Receipt,
+                title: "现金流管理",
+                desc: "导入微信 / 支付宝账单并自动去重，按关键词归入自定义分类，逐笔可筛可查。",
+              },
+              {
+                icon: Target,
+                title: "财务目标规划",
+                desc: "为储蓄、置产、旅行设定目标金额与期限，记录每笔投入并预测达成时间。",
+              },
+              {
+                icon: Bot,
+                title: "AI 财务助手",
+                desc: "用自然语言查询账户、资产、现金流与目标进度，直接拿到分析结论。",
+              },
             ].map((f) => (
-              <div key={f.title}
-                className="group p-7 rounded-2xl border bg-card hover:shadow-[var(--shadow-elegant)] hover:border-primary/30 transition-all"
+              <div
+                key={f.title}
+                className="group p-7 rounded-2xl border bg-card shadow-soft hover:shadow-[var(--shadow-elegant)] hover:border-primary/30 transition-all"
               >
                 <div className="h-11 w-11 rounded-xl bg-accent flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
                   <f.icon className="h-5 w-5" />
@@ -118,6 +223,24 @@ function Landing() {
               </div>
             ))}
           </div>
+
+          {/*
+            开发中清单必须与真实进度一致：
+            财务目标（/goals）已上线，只剩投资持仓与智能提醒还没做
+            （见 src/routes/_authenticated.tsx 的 SOON_ROUTES）。
+          */}
+          <div className="mt-10 flex flex-wrap items-center gap-x-7 gap-y-3 rounded-2xl border border-dashed px-6 py-5">
+            <span className="text-sm font-medium text-muted-foreground">正在开发</span>
+            {["投资持仓追踪", "智能提醒"].map((t) => (
+              <span
+                key={t}
+                className="inline-flex items-center gap-2 text-sm text-muted-foreground"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-primary/50" />
+                {t}
+              </span>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -125,10 +248,10 @@ function Landing() {
       <section id="metrics" className="py-24 bg-secondary/40">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 grid md:grid-cols-4 gap-8 text-center">
           {[
-            { v: "3 min", k: "完成首次资产录入" },
-            { v: "100%", k: "净资产实时计算" },
-            { v: "6+", k: "支持资产类型" },
-            { v: "JWT", k: "双 Token 安全鉴权" },
+            { v: "7 类", k: "账户类型统一管理" },
+            { v: "10 类", k: "资产类型分类记录" },
+            { v: "自动", k: "账单导入与分类匹配" },
+            { v: "AI", k: "自然语言财务问答" },
           ].map((s) => (
             <div key={s.k}>
               <div className="font-display text-4xl font-semibold text-primary">{s.v}</div>
@@ -138,14 +261,33 @@ function Landing() {
         </div>
       </section>
 
+      {/* 产品介绍（中英双语，文案为用户提供的对外统一话术） */}
+      <section id="about" className="py-24">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 grid lg:grid-cols-2 gap-12 lg:gap-16">
+          <div>
+            <p className="text-sm font-medium text-primary">About Finora</p>
+            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">{TAGLINE}</h2>
+            <p className="mt-5 text-muted-foreground leading-relaxed">{INTRO_EN}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-primary">关于 Finora</p>
+            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">
+              让财富，清晰可见。
+            </h2>
+            <p className="mt-5 text-muted-foreground leading-relaxed">{INTRO_ZH}</p>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
-      <section id="why" className="py-24">
+      <section id="why" className="py-24 bg-secondary/40">
         <div className="max-w-4xl mx-auto px-6 lg:px-10 text-center">
           <h2 className="font-display text-4xl sm:text-5xl font-semibold tracking-tight">
             把财务长期视角，<span className="text-gradient-gold">交还给你自己</span>。
           </h2>
           <p className="mt-6 text-muted-foreground max-w-2xl mx-auto">
-            从今天起，告别零散的记账与遗忘的目标。让 NetWorthLens 成为你每月一次、十分钟搞定的财务复盘工具。
+            从今天起，告别零散的记账和分散的账户。让 Finora
+            成为你每月一次、十分钟搞定的财务复盘工具。
           </p>
           <div className="mt-10">
             <Button asChild size="lg" className="shadow-[var(--shadow-elegant)]">
@@ -160,8 +302,10 @@ function Landing() {
 
       <footer className="border-t py-10">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
-          <div className="font-display font-semibold text-foreground">NetWorthLens</div>
-          <div>© {new Date().getFullYear()} NetWorthLens · 个人资产管理平台</div>
+          <Logo tone="onLight" markClassName="h-8" subtitle={TAGLINE} />
+          <div>
+            © {new Date().getFullYear()} Finora · {TAGLINE}
+          </div>
         </div>
       </footer>
     </div>

@@ -17,17 +17,24 @@ export interface DashboardMetrics {
   income: number;
   expense: number;
   balance: number;
-  saving_rate: number | null;
+  /**
+   * 下面这些「环比」字段后端类型是 `Decimal | None`，而接口默认
+   * `response_model_exclude_none=True`：值为 None 时字段**整个从 JSON 里消失**
+   * （既不是 null 也不是 0）。所以必须声明成可选，用 `?.` / `== null` 判断。
+   */
+  saving_rate?: number | null;
   previous_income: number;
   previous_expense: number;
   previous_balance: number;
-  income_change: number | null;
-  expense_change: number | null;
-  balance_change: number | null;
-  total_assets_change: number | null;
-  income_change_rate: number | null;
-  expense_change_rate: number | null;
-  total_assets_change_rate: number | null;
+  income_change?: number | null;
+  expense_change?: number | null;
+  balance_change?: number | null;
+  /** 总资产较上一周期变化；上一周期边界日还没有快照时后端不返回该字段 */
+  total_assets_change?: number | null;
+  income_change_rate?: number | null;
+  expense_change_rate?: number | null;
+  /** 总资产环比；基期为 0 或缺少基期快照时为 None */
+  total_assets_change_rate?: number | null;
 }
 
 export interface CashFlowTrendItem {
@@ -42,8 +49,13 @@ export interface CashFlowTrend {
 }
 
 export interface ExpenseCategoryItem {
-  category_id: string | null;
-  category_name: string;
+  /**
+   * 未归类的流水在后端是 NULL，而接口默认 `response_model_exclude_none=True`，
+   * 所以这两个字段**会整个从 JSON 里消失**（既不是 null 也不是空串），
+   * 这里必须声明为可选，取用时用 `?.` 兜底。
+   */
+  category_id?: string | null;
+  category_name?: string | null;
   amount: number;
   percentage: number;
   transaction_count: number;
@@ -71,8 +83,9 @@ export interface AccountDistribution {
 }
 
 export interface AssetCategoryItem {
-  category_id: string;
-  category_name: string;
+  /** 未归类资产在后端是 NULL，字段会被 exclude_none 整个摘掉，所以声明为可选 */
+  category_id?: string | null;
+  category_name?: string | null;
   value: number;
   percentage: number;
   asset_count: number;

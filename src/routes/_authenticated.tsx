@@ -14,12 +14,14 @@ import {
   Bot,
   Settings,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { authApi, tokenStore } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Logo } from "@/components/logo";
+import { UserAvatar } from "@/components/user-avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,18 +57,49 @@ const NAV = [
   { to: "/settings", label: "系统设置", icon: Settings },
 ] as const;
 
+/** 尚未上线的模块，在导航中标注「开发中」，与落地页「正在开发」保持一致 */
+// 财务目标（/goals）已于 P0 上线，不再标注。
+const SOON_ROUTES = new Set<string>(["/investments"]);
+
 function AuthenticatedLayout() {
-  const { logout } = useAuth();
+  const { token, logout, profile } = useAuth();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
+  // 侧边栏底部展示当前登录用户。profile 还没回来时先用「我的账户」占位，
+  // 避免登录后第一帧出现空白头像位。
+  const displayName = profile?.username?.trim() || "我的账户";
+  // 副标题优先展示头衔，没有头衔就退回账号。
+  const secondaryLabel = profile?.title?.trim() || (profile?.account ? `@${profile.account}` : "");
+
+  // 浏览过程中登录态失效（刷新失败）或用户主动退出时，把人送回登录页。
+  //
+  // 上面的路由守卫走的是 beforeLoad，而 beforeLoad **只在导航时执行一次**：
+  // 页面已经渲染出来之后 token 才被清掉，守卫不会重跑。所以这里必须主动补一次
+  // 导航 —— 否则用户就停在一个什么都加载不出来的页面上，只看到
+  // 「加载失败：认证失败」，既不跳转也不恢复（这正是修复前的行为）。
+  //
+  // 主动退出和被动失效共用这一条出口，避免两处各写一遍导航逻辑导致行为不一致。
+  useEffect(() => {
+    if (token) return;
+    const reason = tokenStore.consumeClearedReason();
+    if (reason) toast.error(reason);
+    router.navigate({
+      to: "/login",
+      // 带上来路，重新登录后能回到刚才那一页。
+      search: { redirect: router.state.location.href },
+      // replace：别让用户按返回键又回到这个已经失效的页面。
+      replace: true,
+    });
+  }, [token, router]);
 
   const handleLogout = async () => {
     try {
       await authApi.logout();
     } finally {
+      // 只清登录态；跳转交给上面的 effect 统一负责（主动退出时 reason 为空，不会弹提示）。
       logout();
-      router.navigate({ to: "/login" });
     }
   };
 
@@ -95,17 +128,17 @@ function AuthenticatedLayout() {
             collapsed ? "lg:justify-center lg:px-2 px-6" : "px-6",
           )}
         >
-          <Link to="/dashboard" className="font-display text-lg font-semibold truncate">
-            {collapsed ? (
-              <span className="text-gradient-gold">NWL</span>
-            ) : (
-              <>
-                <span className="text-gradient-gold">NetWorthLens</span>
-                <div className="text-xs text-sidebar-foreground/60 mt-1 font-normal">
-                  个人财务驾驶舱
-                </div>
-              </>
-            )}
+          <Link
+            to="/dashboard"
+            className="flex min-w-0 items-center"
+            aria-label="Finora 财务概览"
+          >
+            <Logo
+              tone="onDark"
+              markClassName="h-9"
+              showWordmark={!collapsed}
+              subtitle="Your Wealth, In Focus."
+            />
           </Link>
         </div>
 
@@ -115,7 +148,13 @@ function AuthenticatedLayout() {
               key={item.to}
               to={item.to}
               onClick={() => setMobileOpen(false)}
-              title={collapsed ? item.label : undefined}
+              title={
+                collapsed
+                  ? SOON_ROUTES.has(item.to)
+                    ? `${item.label}（开发中）`
+                    : item.label
+                  : undefined
+              }
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors",
                 collapsed && "lg:justify-center lg:px-0",
@@ -129,6 +168,16 @@ function AuthenticatedLayout() {
             >
               <item.icon className="h-4 w-4 shrink-0" />
               <span className={cn(collapsed && "lg:hidden")}>{item.label}</span>
+              {SOON_ROUTES.has(item.to) && (
+                <span
+                  className={cn(
+                    "ml-auto whitespace-nowrap rounded-full bg-sidebar-foreground/10 px-1.5 py-0.5 text-[10px] font-medium text-sidebar-foreground/60",
+                    collapsed && "lg:hidden",
+                  )}
+                >
+                  开发中
+                </span>
+              )}
             </Link>
           ))}
         </nav>
@@ -144,25 +193,36 @@ function AuthenticatedLayout() {
             <DropdownMenuTrigger asChild>
               <button
                 className="flex items-center gap-2 rounded-lg p-1 hover:bg-sidebar-accent transition-colors flex-1 min-w-0"
-                aria-label="用户菜单"
+                // 折叠后用户名会被隐藏，此时按钮上只剩头像，
+                // 必须靠 aria-label 把「这是谁」补回来。
+                aria-label={displayName ? `用户菜单：${displayName}` : "用户菜单"}
               >
-                <Avatar className="h-8 w-8 shrink-0">
-                  <AvatarFallback className="bg-primary/20 text-primary text-xs">
-                    <User className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <span
-                  className={cn(
-                    "text-sm text-sidebar-foreground/90 truncate text-left",
-                    collapsed && "lg:hidden",
+                <UserAvatar
+                  name={profile?.username}
+                  src={profile?.avatar}
+                  className="h-8 w-8"
+                  textClassName="text-xs"
+                  tone="onDark"
+                />
+                <span className={cn("flex min-w-0 flex-col text-left", collapsed && "lg:hidden")}>
+                  <span className="truncate text-sm text-sidebar-foreground/90">{displayName}</span>
+                  {secondaryLabel && (
+                    <span className="truncate text-[11px] text-sidebar-foreground/55">
+                      {secondaryLabel}
+                    </span>
                   )}
-                >
-                  我的账户
                 </span>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="top" className="w-48">
-              <DropdownMenuLabel>账户</DropdownMenuLabel>
+            <DropdownMenuContent align="end" side="top" className="w-56">
+              <DropdownMenuLabel className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate text-sm">{displayName}</span>
+                {secondaryLabel && (
+                  <span className="truncate text-xs font-normal text-muted-foreground">
+                    {secondaryLabel}
+                  </span>
+                )}
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link to="/profile" className="cursor-pointer">
@@ -202,7 +262,7 @@ function AuthenticatedLayout() {
           <button onClick={() => setMobileOpen((o) => !o)} className="p-2 -ml-2">
             <Menu className="h-5 w-5" />
           </button>
-          <div className="font-display font-semibold">NetWorthLens</div>
+          <Logo tone="onLight" markClassName="h-7" wordmarkClassName="text-base" />
           <div className="w-9" />
         </header>
         <main className="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl w-full mx-auto">

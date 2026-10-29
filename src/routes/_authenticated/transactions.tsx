@@ -6,6 +6,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   CalendarDays,
+  CheckCheck,
   ChevronLeft,
   ChevronRight,
   ChevronsRight,
@@ -15,6 +16,8 @@ import {
   Pencil,
   ReceiptText,
   RefreshCw,
+  ScanSearch,
+  Search,
   X,
   Upload,
   WalletCards,
@@ -27,6 +30,9 @@ import {
   transactionApi,
   type CreateTransactionPayload,
   type ImportSource,
+  type OffsetDetectResult,
+  type OffsetMatchItem,
+  type OffsetTransactionSide,
   type TransactionListItem,
   type UpdateTransactionPayload,
 } from "@/lib/api/transaction";
@@ -46,6 +52,7 @@ import { MultiSelect } from "@/components/multi-select";
 import { AccountIcon } from "@/components/account-icon";
 
 import { DatePicker } from "@/components/date-picker";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Card, CardContent } from "@/components/ui/card";
@@ -81,12 +88,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/transactions")({
-  head: () => ({ meta: [{ title: "现金流 · NetWorthLens" }] }),
+  head: () => ({ meta: [{ title: "现金流 · Finora" }] }),
   component: TransactionsPage,
 });
 
 const PAGE_SIZE = 20;
 const NONE_VALUE = "__none__";
+/** 与后端 DEFAULT_MAX_DAYS 保持一致 */
+const DEFAULT_OFFSET_MAX_DAYS = 30;
+const OFFSET_MAX_DAYS_LIMIT = 365;
 
 const padTimePart = (value: number) => String(value).padStart(2, "0");
 
@@ -179,14 +189,14 @@ function DateRangeFilter({
       : "不限日期";
 
   return (
-    <div className="grid gap-2">
+    <div className="w-full">
       <div className="flex items-center gap-1">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
               className={cn(
-                "w-full min-w-0 justify-start text-left font-normal sm:w-[320px] md:w-[340px]",
+                "w-full min-w-0 justify-start text-left font-normal",
                 !startDate && !endDate && "text-muted-foreground",
               )}
             >
@@ -608,6 +618,215 @@ function ImportDialog({
   );
 }
 
+function OffsetDetectDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [maxDaysInput, setMaxDaysInput] = useState(String(DEFAULT_OFFSET_MAX_DAYS));
+  const [preview, setPreview] = useState<OffsetDetectResult | null>(null);
+
+  const maxDays = Number(maxDaysInput);
+  const daysValid = Number.isInteger(maxDays) && maxDays >= 1 && maxDays <= OFFSET_MAX_DAYS_LIMIT;
+
+  const detectMutation = useMutation({
+    mutationFn: (apply: boolean) => transactionApi.detectOffset({ max_days: maxDays, apply }),
+    onSuccess: (data, apply) => {
+      if (!apply) {
+        setPreview(data);
+        return;
+      }
+
+      // 冲减会改变收支口径：列表、汇总、概览三处缓存都要失效
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transaction-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+
+      toast.success(`已标记 ${data.match_count} 组冲减（${data.updated_count} 笔），不再计入收支`);
+      setPreview(null);
+      onOpenChange(false);
+    },
+    onError: (error) => toast.error(error instanceof ApiError ? error.message : "识别冲减消费失败"),
+  });
+
+  const busy = detectMutation.isPending;
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next) setPreview(null);
+    onOpenChange(next);
+  };
+
+  const updateMaxDays = (value: string) => {
+    setMaxDaysInput(value);
+    // 参数一变，上一次的识别结果就失效了
+    setPreview(null);
+  };
+
+  const canApply = preview !== null && preview.match_count > 0;
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>识别冲减消费</DialogTitle>
+          <DialogDescription>
+            把「消费后被退回」的一对流水配起来标记为冲减。标记后这组流水不再计入收支统计，也不再出现在流水列表里。
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-5 py-1">
+          <div className="grid gap-2">
+            <Label htmlFor="offset-max-days">退款最大间隔</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                id="offset-max-days"
+                type="number"
+                min={1}
+                max={OFFSET_MAX_DAYS_LIMIT}
+                value={maxDaysInput}
+                onChange={(event) => updateMaxDays(event.target.value)}
+                disabled={busy}
+                className="w-24"
+              />
+              <span className="text-sm text-muted-foreground">天</span>
+              <div className="ml-auto flex items-center gap-1">
+                {[30, 60, 90].map((days) => (
+                  <Button
+                    key={days}
+                    type="button"
+                    size="sm"
+                    variant={maxDays === days ? "secondary" : "ghost"}
+                    onClick={() => updateMaxDays(String(days))}
+                    disabled={busy}
+                  >
+                    {days} 天
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              退款必须发生在支出之后，且间隔不超过这个天数。先在账单里翻一遍退款记录，能估出大致范围。
+            </p>
+          </div>
+
+          {preview && <OffsetPreview data={preview} />}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={busy}>
+            取消
+          </Button>
+          {canApply ? (
+            <Button onClick={() => detectMutation.mutate(true)} disabled={busy}>
+              {busy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCheck className="mr-2 h-4 w-4" />
+              )}
+              确认标记 {preview.match_count} 组
+            </Button>
+          ) : (
+            <Button onClick={() => detectMutation.mutate(false)} disabled={busy || !daysValid}>
+              {busy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ScanSearch className="mr-2 h-4 w-4" />
+              )}
+              开始识别
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function OffsetPreview({ data }: { data: OffsetDetectResult }) {
+  if (data.match_count === 0) {
+    return (
+      <div className="rounded-lg border border-dashed px-4 py-8 text-center">
+        <p className="text-sm font-medium">没有找到可配对的冲减</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          已检查 {data.candidate_count} 笔流水。可以试试把间隔天数调大，或确认账单里确实有退款记录。
+        </p>
+      </div>
+    );
+  }
+
+  const total = data.matches.reduce((sum, item) => sum + Math.abs(item.expense.amount), 0);
+
+  return (
+    <div className="grid gap-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+        <span className="font-medium">发现 {data.match_count} 组</span>
+        <span className="text-muted-foreground">涉及 {data.match_count * 2} 笔流水</span>
+        <span className="text-muted-foreground">冲减合计 {formatAmount(total)}</span>
+      </div>
+      <div className="max-h-[min(320px,38vh)] space-y-2 overflow-y-auto pr-1">
+        {data.matches.map((match) => (
+          <OffsetMatchRow key={match.expense.id} match={match} />
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        确认无误后点「确认标记」，系统会重新识别一次并把这 {data.match_count * 2} 笔统一标记为冲减。
+      </p>
+    </div>
+  );
+}
+
+function OffsetMatchRow({ match }: { match: OffsetMatchItem }) {
+  return (
+    <div className="rounded-lg border bg-muted/30 p-3">
+      <div className="grid gap-1.5">
+        <OffsetSideLine label="支出" side={match.expense} direction="out" />
+        <OffsetSideLine label="退款" side={match.refund} direction="in" />
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 border-t pt-2 text-xs text-muted-foreground">
+        {match.reasons.map((reason) => (
+          <Badge key={reason} variant="secondary" className="font-normal">
+            {reason}
+          </Badge>
+        ))}
+        <span>间隔 {match.interval_days} 天</span>
+        <span className="tabular-nums">
+          {formatDateTime(match.expense.occurred_at)} → {formatDateTime(match.refund.occurred_at)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function OffsetSideLine({
+  label,
+  side,
+  direction,
+}: {
+  label: string;
+  side: OffsetTransactionSide;
+  direction: "in" | "out";
+}) {
+  return (
+    <div className="flex items-baseline gap-2 text-sm">
+      <span className="w-7 shrink-0 text-xs text-muted-foreground">{label}</span>
+      <span className="min-w-0 flex-1 truncate" title={side.merchant ?? undefined}>
+        {side.merchant || "未填写商户"}
+      </span>
+      <span
+        className={cn(
+          "shrink-0 text-right tabular-nums",
+          direction === "in" ? "text-emerald-600" : "text-rose-600",
+        )}
+      >
+        {direction === "in" ? "+" : "-"}
+        {formatAmount(Math.abs(side.amount))}
+      </span>
+    </div>
+  );
+}
+
 function TransactionsPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
@@ -628,6 +847,7 @@ function TransactionsPage() {
   const [type, setType] = useState<"all" | TransactionType>("all");
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [offsetOpen, setOffsetOpen] = useState(false);
   const [editing, setEditing] = useState<TransactionListItem | null>(null);
 
   const query = useMemo(
@@ -783,7 +1003,11 @@ function TransactionsPage() {
           <h1 className="font-display text-3xl font-semibold">现金流</h1>
           <p className="mt-1 text-sm text-muted-foreground">记录、导入并回看每一笔收支。</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={() => setOffsetOpen(true)}>
+            <ScanSearch className="mr-2 h-4 w-4" />
+            识别冲减消费
+          </Button>
           <Button variant="outline" onClick={() => setImportOpen(true)}>
             <Upload className="mr-2 h-4 w-4" />
             导入流水
@@ -838,69 +1062,80 @@ function TransactionsPage() {
       </div>
 
       <Card>
-        <CardContent className="flex flex-col gap-4 p-4 lg:flex-row lg:items-end">
-        <ButtonGroup role="group" aria-label="流水类型筛选">
-            {(
-              [
-                ["all", "全部"],
-                [TransactionType.EXPENSE, "支出"],
-                [TransactionType.INCOME, "收入"],
-              ] as const
-            ).map(([value, label]) => (
-              <Button
-                key={String(value)}
-                variant={type === value ? "default" : "outline"}
-                onClick={() => {
-                  setType(value);
-                  setPage(1);
-                }}
-              >
-                {label}
-              </Button>
-            ))}
-          </ButtonGroup>
-          <DateRangeFilter startDate={startDate} endDate={endDate} onChange={updateDateRange} />
-          <Input
-            className="lg:w-56"
-            placeholder="搜索商户/商品/备注"
-            value={keywordsInput}
-            onChange={(event) => setKeywordsInput(event.target.value)}
-          />
-          <div className="flex flex-col gap-1.5 lg:w-56">
-            <CategoryTreeMultiSelect
-              categories={categories}
-              value={categoryIds}
-              onChange={(next) => {
-                setCategoryIds(next);
-                setPage(1);
-              }}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5 lg:w-56">
-            <MultiSelect
-              options={accounts.map((item) => ({ value: item.id, label: item.name }))}
-              value={targetAccountIds}
-              onChange={(next) => {
-                setTargetAccountIds(next);
-                setPage(1);
-              }}
-              placeholder="全部账户"
-              searchPlaceholder="搜索账户"
-              emptyText="暂无账户"
-            />
+        <CardContent className="space-y-3 p-4">
+          {/* 第一行：流水类型 + 关键词搜索 + 刷新 */}
+          <div className="flex flex-wrap items-center gap-3">
+            <ButtonGroup role="group" aria-label="流水类型筛选" className="shrink-0">
+              {(
+                [
+                  ["all", "全部"],
+                  [TransactionType.EXPENSE, "支出"],
+                  [TransactionType.INCOME, "收入"],
+                ] as const
+              ).map(([value, label]) => (
+                <Button
+                  key={String(value)}
+                  variant={type === value ? "default" : "outline"}
+                  onClick={() => {
+                    setType(value);
+                    setPage(1);
+                  }}
+                >
+                  {label}
+                </Button>
+              ))}
+            </ButtonGroup>
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="搜索商户/商品/备注"
+                value={keywordsInput}
+                onChange={(event) => setKeywordsInput(event.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              aria-label="刷新流水"
+              title="刷新流水"
+              onClick={invalidate}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="lg:ml-auto"
-            aria-label="刷新流水"
-            title="刷新流水"
-            onClick={invalidate}
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          {/* 第二行：日期范围 + 分类 + 账户 */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-[240px] flex-1 basis-64">
+              <DateRangeFilter startDate={startDate} endDate={endDate} onChange={updateDateRange} />
+            </div>
+            <div className="min-w-[160px] flex-1 basis-52">
+              <CategoryTreeMultiSelect
+                categories={categories}
+                value={categoryIds}
+                onChange={(next) => {
+                  setCategoryIds(next);
+                  setPage(1);
+                }}
+              />
+            </div>
+            <div className="min-w-[160px] flex-1 basis-52">
+              <MultiSelect
+                options={accounts.map((item) => ({ value: item.id, label: item.name }))}
+                value={targetAccountIds}
+                onChange={(next) => {
+                  setTargetAccountIds(next);
+                  setPage(1);
+                }}
+                placeholder="全部账户"
+                searchPlaceholder="搜索账户"
+                emptyText="暂无账户"
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -1054,6 +1289,7 @@ function TransactionsPage() {
         onImport={(source, file, accountId) => importMutation.mutate({ source, file, accountId })}
         importing={importMutation.isPending}
       />
+      <OffsetDetectDialog open={offsetOpen} onOpenChange={setOffsetOpen} />
     </div>
   );
 }
@@ -1073,8 +1309,7 @@ function TransactionRow({
   const accountId = income ? item.target_account_id : item.source_account_id;
   const account = accounts.find((a) => a.id === accountId);
   const accountName = account?.name ?? "未关联账户";
-  const category =
-    item.category ?? categories.find((c) => c.id === item.category_id) ?? null;
+  const category = item.category ?? categories.find((c) => c.id === item.category_id) ?? null;
   const typeLabel = TransactionTypeMap[item.transaction_type] ?? "其他";
   return (
     <TableRow>
@@ -1125,7 +1360,10 @@ function TransactionRow({
         {item.note || "—"}
       </TableCell>
       <TableCell
-        className={cn("min-w-[100px] text-right font-medium", Number(item.amount) >= 0 ? "text-emerald-700" : "text-foreground")}
+        className={cn(
+          "min-w-[100px] text-right font-medium",
+          Number(item.amount) >= 0 ? "text-emerald-700" : "text-foreground",
+        )}
       >
         {Number(item.amount) >= 0 ? "+" : "-"}
         {formatAmount(Math.abs(Number(item.amount)), item.currency)}
@@ -1187,11 +1425,7 @@ function EditTransactionDialog({
         : true,
   );
 
-  const accountSelect = (
-    label: string,
-    value: string,
-    onValueChange: (value: string) => void,
-  ) => (
+  const accountSelect = (label: string, value: string, onValueChange: (value: string) => void) => (
     <div className="grid gap-2">
       <Label>{label}</Label>
       <Select
@@ -1337,7 +1571,12 @@ function TransactionMobileCard({
           <p className="mt-0.5 truncate text-xs text-muted-foreground">备注：{item.note}</p>
         )}
       </div>
-      <p className={cn("shrink-0 text-sm font-semibold", Number(item.amount) >= 0 && "text-emerald-700")}>
+      <p
+        className={cn(
+          "shrink-0 text-sm font-semibold",
+          Number(item.amount) >= 0 && "text-emerald-700",
+        )}
+      >
         {Number(item.amount) >= 0 ? "+" : "-"}
         {formatAmount(Math.abs(Number(item.amount)), item.currency)}
       </p>

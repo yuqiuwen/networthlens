@@ -6,7 +6,9 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("rounded-xl border bg-card text-card-foreground shadow", className)}
+      // 柔和圆角：2xl（--radius + 8px = 24px）+ 大扩散低对比的 shadow-soft，
+      // 配大圆角不会像默认 shadow 那样在四角留下生硬的投影。
+      className={cn("rounded-2xl border bg-card text-card-foreground shadow-soft", className)}
       {...props}
     />
   ),

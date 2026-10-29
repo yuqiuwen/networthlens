@@ -1,17 +1,34 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TrendingUp } from "lucide-react";
+
+import { ComingSoon } from "@/components/coming-soon";
 
 export const Route = createFileRoute("/_authenticated/investments")({
-  head: () => ({ meta: [{ title: "投资持仓 · NetWorthLens" }] }),
-  component: () => (
-    <div className="space-y-6">
-      <h1 className="font-display text-3xl font-semibold">投资持仓</h1>
-      <Card>
-        <CardHeader><CardTitle>即将上线</CardTitle></CardHeader>
-        <CardContent className="text-muted-foreground">
-          基金 / 股票持仓，成本、市值、收益率统一视图。
-        </CardContent>
-      </Card>
-    </div>
-  ),
+  head: () => ({
+    meta: [
+      { title: "投资持仓 · Finora" },
+      {
+        name: "description",
+        content: "投资持仓模块正在开发中：基金、股票、债券持仓的成本、市值与收益率统一视图。",
+      },
+    ],
+  }),
+  component: InvestmentsPage,
 });
+
+function InvestmentsPage() {
+  return (
+    <ComingSoon
+      icon={TrendingUp}
+      title="投资持仓"
+      description="把基金、股票、债券的持仓与成本集中登记，让投资成为资产结构的一部分。"
+      highlights={[
+        "基金 / 股票 / 债券持仓统一登记",
+        "成本价与当前市值对比",
+        "持有收益与收益率",
+        "持仓占比联动资产结构",
+      ]}
+      aiHint="当前 AI 助手已能分析你的资产结构与账户余额，投资持仓数据接入后即可一并纳入。"
+    />
+  );
+}

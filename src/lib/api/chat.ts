@@ -1,4 +1,4 @@
-import { API_BASE_URL, request, tokenStore } from "@/lib/api";
+import { API_BASE_URL, authApi, request, tokenStore } from "@/lib/api";
 
 // ==================== 枚举 ====================
 
@@ -22,7 +22,7 @@ export enum ChatEventType {
   CONTENT = 5,
   FINISH = 6,
   ERROR = 7,
-  THINKING = 8
+  THINKING = 8,
 }
 
 // ==================== 类型 ====================
@@ -39,7 +39,8 @@ export interface ChatMessage {
   role: AgentRole;
   content: string;
   tool_name: string | null;
-  dispaly_name: string | null;
+  /** 后端 AIChatMessageSchema 的字段名是 tool_name，没有 display_name */
+  display_name?: string | null;
   token_count: number | null;
   model: string | null;
   ctime: string;
@@ -64,6 +65,8 @@ export const chatApi = {
   createSession: (title?: string | null) =>
     request.post<ChatSession>("/v1/chat/sessions", { title: title ?? null }),
   sessionDetail: (id: string) => request.get<ChatSession>(`/v1/chat/sessions/${id}`),
+  renameSession: (id: string, title: string) =>
+    request.put<ChatSession>(`/v1/chat/sessions/${id}`, { title }),
   deleteSession: (id: string) => request.delete<boolean>(`/v1/chat/sessions/${id}`),
   messages: (sessionId: string, params: { cursor?: string; size?: number } = {}) =>
     request.get<CursorPage<ChatMessage>>(`/v1/chat/sessions/${sessionId}/messages`, {
@@ -76,6 +79,8 @@ export const chatApi = {
 export interface StreamChatHandlers {
   onEvent: (event: ChatStreamEvent) => void;
   onDone?: () => void;
+  /** 用户主动停止：与 onDone 分开，便于 UI 区分「正常结束」和「被打断」 */
+  onAbort?: () => void;
   onError?: (err: Error) => void;
   signal?: AbortSignal;
 }
@@ -85,10 +90,10 @@ export async function streamChat(
   handlers: StreamChatHandlers,
 ) {
   const url = `${API_BASE_URL}/v1/chat/stream`;
-  const token = tokenStore.get();
 
-  try {
-    const resp = await fetch(url, {
+  const send = () => {
+    const token = tokenStore.get();
+    return fetch(url, {
       method: "POST",
       credentials: "include",
       signal: handlers.signal,
@@ -99,8 +104,28 @@ export async function streamChat(
       },
       body: JSON.stringify(payload),
     });
+  };
+
+  try {
+    let resp = await send();
+
+    // access token 过期时先刷新再重试一次，与 request 封装里的行为保持一致，
+    // 否则流式接口在登录态刚过期时只会弹一个「请求失败 (401)」。
+    if (resp.status === 401) {
+      try {
+        await authApi.refresh();
+      } catch {
+        tokenStore.clear("登录已过期，请重新登录");
+        throw new Error("登录已过期，请重新登录");
+      }
+      resp = await send();
+    }
 
     if (!resp.ok || !resp.body) {
+      if (resp.status === 401) {
+        tokenStore.clear("登录已过期，请重新登录");
+        throw new Error("登录已过期，请重新登录");
+      }
       throw new Error(`请求失败 (${resp.status})`);
     }
 
@@ -139,7 +164,12 @@ export async function streamChat(
 
     handlers.onDone?.();
   } catch (err) {
-    if ((err as Error)?.name === "AbortError") return;
+    // 主动中断不是错误：必须回调出去，否则调用方的 loading / pending
+    // 状态没有任何机会被清理，界面会一直停在「正在回复」。
+    if ((err as Error)?.name === "AbortError") {
+      handlers.onAbort?.();
+      return;
+    }
     handlers.onError?.(err as Error);
   }
 }

@@ -11,15 +11,30 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  /*
+   * 字体：Inter（西文/数字）+ 思源黑体（中文）。
+   *
+   * 思源黑体在 Google Fonts 上的名字是 Noto Sans SC，本机装了 Source Han Sans SC
+   * 时优先用本机版本（字重更全、体积为 0）；再往后是系统自带的中文字体兜底，
+   * 保证离线环境下中文不会掉成宋体。
+   *
+   * `--font-display` 与 `--font-sans` 同栈：Finora 的品牌调性是「一个无衬线字体走到底」，
+   * 标题靠字重与负字距拉开层级，不再混用第二套字体。
+   */
+  --font-sans:
+    "Inter", "Noto Sans SC", "Source Han Sans SC", "Source Han Sans CN", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    "Inter", "Noto Sans SC", "Source Han Sans SC", "Source Han Sans CN", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  /* 柔和圆角：整体抬一档，卡片用 2xl，控件用 lg */
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 3px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-3xl: calc(var(--radius) + 14px);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -62,7 +77,14 @@
 }
 
 :root {
-  --radius: 0.75rem;
+  /*
+   * --radius 从 0.75rem 抬到 1rem：这是「柔和圆角卡片」的唯一开关，
+   * 下面的 radius 梯度与 Card 组件的 rounded-2xl 都从它派生。
+   * 配色保持原样（Emerald Prestige）—— 品牌换新只动名称/字体/圆角/数字，
+   * 不动主题色。标识本身的青绿+藏青只存在于 src/components/logo.tsx。
+   */
+  --radius: 1rem;
+
   /* Emerald Prestige palette */
   --background: oklch(0.985 0.005 95);
   --foreground: oklch(0.22 0.04 165);
@@ -105,7 +127,12 @@
 
   --gradient-primary: linear-gradient(135deg, oklch(0.38 0.09 165), oklch(0.55 0.13 160));
   --gradient-gold: linear-gradient(135deg, oklch(0.75 0.13 85), oklch(0.82 0.12 90));
-  --gradient-hero: linear-gradient(135deg, oklch(0.22 0.04 165) 0%, oklch(0.32 0.08 165) 60%, oklch(0.45 0.1 160) 100%);
+  --gradient-hero: linear-gradient(
+    135deg,
+    oklch(0.22 0.04 165) 0%,
+    oklch(0.32 0.08 165) 60%,
+    oklch(0.45 0.1 160) 100%
+  );
   --shadow-elegant: 0 20px 50px -20px color-mix(in oklab, oklch(0.38 0.09 165) 35%, transparent);
   --shadow-gold: 0 10px 30px -10px color-mix(in oklab, oklch(0.75 0.13 85) 45%, transparent);
 }
@@ -139,14 +166,47 @@
 }
 
 @layer base {
-  * { border-color: var(--color-border); }
+  * {
+    border-color: var(--color-border);
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-feature-settings: "ss01", "cv11";
+    /*
+     * 金额一律用等宽数字（tabular figures）。
+     *
+     * 放在 body 上而不是逐个组件加类，是因为这个产品里数字出现在太多地方
+     * （卡片、表格、图表 tooltip、进度条…），漏一处就会出现「列表里小数点对不齐」
+     * 的观感问题。Inter 的 tabular 数字本身就是同一套字形，只是把宽度拉齐，
+     * 所以正文里的数字也不会显得突兀。
+     *
+     * 原先是 Space Grotesk / DM Sans 的 `font-feature-settings: "ss01","cv11"`，
+     * 换字体后那两个特性在 Inter 上语义不同，已移除。
+     */
+    font-variant-numeric: tabular-nums;
   }
-  h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); letter-spacing: -0.02em; }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.022em;
+  }
+}
+
+/** 需要显式声明等宽数字时用（例如某个数字故意要 proportional 后又要改回来） */
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/** 柔和圆角卡片阴影：比 Tailwind 默认的 shadow 更淡、更大扩散，配大圆角不显生硬 */
+@utility shadow-soft {
+  box-shadow:
+    0 1px 2px 0 color-mix(in oklab, var(--color-foreground) 4%, transparent),
+    0 12px 28px -18px color-mix(in oklab, var(--color-foreground) 22%, transparent);
 }
 
 @utility text-gradient-gold {
@@ -154,4 +214,64 @@
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/**
+ * Streamdown 的代码块与表格底板用的是 `--sidebar`。
+ *
+ * 在默认 shadcn 主题里 `--sidebar` 是浅灰，套到本项目的深色导航色上就变成
+ * 「深底 + 深字」—— 助手回答里的每一张表格都会糊成一团。
+ * 这里统一换回中性面板色，并把代码块右上角那枚半透明按钮条的底色去掉
+ * （它同样取自 `--sidebar/80`）。
+ *
+ * 只作用于 `.nwl-response` 内部，不影响侧边栏本身。
+ */
+.nwl-response [data-streamdown="table-wrapper"],
+.nwl-response [data-streamdown="code-block"] {
+  background-color: var(--color-muted);
+  color: var(--color-foreground);
+}
+
+.nwl-response [data-streamdown="code-block-actions"] > div {
+  border-color: var(--color-border);
+  background-color: var(--color-background);
+}
+
+/**
+ * 「正在生成」的文字流光。
+ *
+ * AI 助手在思考 / 执行工具时会挂上这个类：一层比正文更亮的渐变横扫文字，
+ * 表示这行字是**活的**（还在变），而不是一条静止的灰字状态。
+ * 只用前景色与 muted 色，不引入新色相，深浅色主题都成立。
+ */
+@keyframes nwl-shimmer {
+  from {
+    background-position: 180% 50%;
+  }
+  to {
+    background-position: -80% 50%;
+  }
+}
+
+@utility shimmer-text {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-muted-foreground) 0%,
+    var(--color-muted-foreground) 38%,
+    var(--color-foreground) 50%,
+    var(--color-muted-foreground) 62%,
+    var(--color-muted-foreground) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: nwl-shimmer 2.4s linear infinite;
+
+  /* 尊重系统的「减弱动效」设置：停掉扫光，退回正常文字色 */
+  @media (prefers-reduced-motion: reduce) {
+    background-image: none;
+    color: inherit;
+    animation: none;
+  }
 }
